@@ -232,6 +232,7 @@ class App {
     }
 
     togglePolygonMode() {
+        const btn = document.getElementById('draw-room');
         if (this.polygonSystem.isActive) {
             this.polygonSystem.deactivate();
             this.controls.enabled = true;
@@ -241,15 +242,19 @@ class App {
                 }
             });
             this.updateStatus();
+            btn.innerHTML = 'Draw Room';
+            btn.style.background = '#3b82f6';
         } else {
             this.polygonSystem.activate();
-            this.controls.enabled = false;
+            this.controls.enabled = true; // KEEP ENABLED for navigation
             this.parts.forEach(part => {
                 if (!part.mesh.userData.isFloorplan) {
                     part.mesh.visible = false;
                 }
             });
-            this.updateStatus('Drawing Mode: Click to add points, AUTO-CLOSE on first point, ESC to cancel');
+            this.updateStatus('Drawing Mode: Orbit/Pan to see floor, CLICK grid to add points.');
+            btn.innerHTML = 'Finish Room';
+            btn.style.background = '#ef4444';
         }
     }
 
