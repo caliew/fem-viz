@@ -1,0 +1,21 @@
+# Task: Refined FEM assembly interaction
+
+- [x] Research and recommend WebGL libraries for FEM <!-- id: 0 -->
+- [x] Create an implementation plan for a starter project <!-- id: 1 -->
+- [x] Set up a basic Three.js boilerplate with draggable parts <!-- id: 2 -->
+- [x] Research Three.js snapping and interaction libraries <!-- id: 5 -->
+- [x] Design the 'Attachment Point' (Socket) data structure <!-- id: 6 -->
+- [x] Implement snapping/auto-joining logic <!-- id: 7 -->
+- [x] Implement FEM colormap shader for Stress/Strain <!-- id: 8 -->
+- [x] Add wireframe edges to modular parts <!-- id: 11 -->
+- [x] Implement 'A' key for Autoscale (Zoom to Fit) <!-- id: 12 -->
+- [x] Explain source code structure to user <!-- id: 18 -->
+- [x] Copy agent artifacts to project folder <!-- id: 19 -->
+- [x] Refine Grid Snapping (Center-in-cell) for Add/Move <!-- id: 20 -->
+- [x] Implement Numeric Color Palette (Keys 1-9) <!-- id: 21 -->
+- [x] Implement UI Color Menu <!-- id: 22 -->
+- [x] Implement 'D' for Delete <!-- id: 23 -->
+- [x] Refine Rotation (R + X/Y/Z for 45 deg local) <!-- id: 24 -->
+- [x] Fix Rotation Snapping (Preserve tilts) <!-- id: 10 -->
+- [x] Implement Assembly Parenting (Lego-style grouping) <!-- id: 25 -->
+- [x] Verify functionality and provide a walkthrough <!-- id: 4 -->

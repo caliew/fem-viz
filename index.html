@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lego FEM Viz</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            font-family: 'Inter', sans-serif;
+            background: #050505;
+            color: white;
+        }
+
+        #canvas-container {
+            width: 100vw;
+            height: 100vh;
+        }
+
+        #overlay {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            pointer-events: none;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+        }
+
+        h1 {
+            margin: 0;
+            font-size: 1.2rem;
+            font-weight: 600;
+        }
+
+        p {
+            margin: 5px 0 0;
+            font-size: 0.9rem;
+            opacity: 0.7;
+        }
+
+        .controls {
+            margin-top: 15px;
+            pointer-events: auto;
+        }
+
+        button {
+            background: #2563eb;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            transition: background 0.2s;
+        }
+
+        button:hover {
+            background: #1d4ed8;
+        }
+
+        .palette-menu {
+            display: flex;
+            gap: 5px;
+            margin-top: 15px;
+            pointer-events: auto;
+        }
+
+        .color-swatch {
+            width: 24px;
+            height: 24px;
+            border-radius: 4px;
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.7rem;
+            font-weight: bold;
+            color: rgba(0, 0, 0, 0.5);
+            transition: transform 0.1s, border-color 0.2s;
+        }
+
+        .color-swatch:hover {
+            transform: scale(1.1);
+            border-color: white;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="canvas-container"></div>
+    <div id="overlay">
+        <h1>Lego FEM Viz</h1>
+        <p>Drag parts to assemble. Auto-joining enabled.</p>
+        <p style="font-size: 0.8rem; opacity: 0.5; margin-top: 5px;">Hold <b>Shift</b> to move vertically.</p>
+        <p style="font-size: 0.8rem; opacity: 0.5; margin-top: 2px;"><b>A</b>: Add | <b>D</b>: Delete | <b>R+X/Y/Z</b>:
+            Rotate | <b>L</b>: Lock | <b>S</b>: Mode | <b>F</b>: Fit | <b>P</b>: Draw Room</p>
+        <p style="font-size: 0.8rem; opacity: 0.5; margin-top: 2px;">Polygon Mode: <b>Enter</b>: Finish | <b>Esc</b>:
+            Cancel</p>
+
+        <div id="status" style="margin-top: 10px; font-weight: bold;">Status: <span
+                style="color: #22c55e;">UNLOCKED</span> | Mode: <span style="color: #3b82f6;">STRESS</span></div>
+
+        <div class="palette-menu">
+            <div class="color-swatch" style="background: #ef4444;" data-key="1">1</div>
+            <div class="color-swatch" style="background: #22c55e;" data-key="2">2</div>
+            <div class="color-swatch" style="background: #3b82f6;" data-key="3">3</div>
+            <div class="color-swatch" style="background: #eab308;" data-key="4">4</div>
+            <div class="color-swatch" style="background: #a855f7;" data-key="5">5</div>
+            <div class="color-swatch" style="background: #06b6d4;" data-key="6">6</div>
+            <div class="color-swatch" style="background: #f97316;" data-key="7">7</div>
+            <div class="color-swatch" style="background: #ec4899;" data-key="8">8</div>
+            <div class="color-swatch" style="background: #ffffff;" data-key="9">9</div>
+        </div>
+
+        <div class="controls">
+            <button id="add-part">Add Block</button>
+            <button id="draw-room" style="background: #3b82f6;">Draw Room</button>
+            <button id="import-nastran" style="background: #6d28d9;">Import BDF</button>
+            <button id="toggle-grid-ids" style="background: #475569;">Grid IDs</button>
+            <button id="toggle-elem-ids" style="background: #475569;">Elem IDs</button>
+            <button id="toggle-loads" style="background: #ef4444;">Loads</button>
+            <button id="toggle-spc" style="background: #22c55e;">Constraints</button>
+        </div>
+    </div>
+    <script type="module" src="/src/main.js"></script>
+</body>
+
+</html>

@@ -1,0 +1,64 @@
+$ Improved "Solid" Aircraft Demo Model
+$ Hexagonal Fuselage and Surface Wings
+$ ------------------------------------------------
+$ Nodes - Nose
+GRID           1        0.0     0.0     0.0
+$ Nodes - Bulkhead 1 (x=1.0)
+GRID           2        1.0     0.5     0.0
+GRID           3        1.0     0.25    0.433
+GRID           4        1.0    -0.25    0.433
+GRID           5        1.0    -0.5     0.0
+GRID           6        1.0    -0.25   -0.433
+GRID           7        1.0     0.25   -0.433
+$ Nodes - Bulkhead 2 (x=5.0)
+GRID           8        5.0     0.5     0.0
+GRID           9        5.0     0.25    0.433
+GRID          10        5.0    -0.25    0.433
+GRID          11        5.0    -0.5     0.0
+GRID          12        5.0    -0.25   -0.433
+GRID          13        5.0     0.25   -0.433
+$ Nodes - Tail Point
+GRID          14        7.0     0.0     0.0
+$ Nodes - Wing LH
+GRID          15        2.0     0.0     0.4
+GRID          16        4.0     0.0     0.4
+GRID          17        2.5     0.0     4.0
+GRID          18        4.5     0.0     3.5
+$ Nodes - Wing RH
+GRID          19        2.0     0.0    -0.4
+GRID          20        4.0     0.0    -0.4
+GRID          21        2.5     0.0    -4.0
+GRID          22        4.5     0.0    -3.5
+$ Nodes - Tail Fin
+GRID          23        5.5     0.0     0.0
+GRID          24        6.5     0.0     0.0
+GRID          25        6.5     1.5     0.0
+GRID          26        5.8     1.8     0.0
+$ ------------------------------------------------
+$ Elements - Nose Cone
+CTRIA3         1       1       1       2       3
+CTRIA3         2       1       1       3       4
+CTRIA3         3       1       1       4       5
+CTRIA3         4       1       1       5       6
+CTRIA3         5       1       1       6       7
+CTRIA3         6       1       1       7       2
+$ Elements - Fuselage Body
+CQUAD4         7       1       2       8       9       3
+CQUAD4         8       1       3       9      10       4
+CQUAD4         9       1       4      10      11       5
+CQUAD4        10       1       5      11      12       6
+CQUAD4        11       1       6      12      13       7
+CQUAD4        12       1       7      13       8       2
+$ Elements - Tail Cone
+CTRIA3        13       1      14       8       9
+CTRIA3        14       1      14       9      10
+CTRIA3        15       1      14      10      11
+CTRIA3        16       1      14      11      12
+CTRIA3        17       1      14      12      13
+CTRIA3        18       1      14      13       8
+$ Elements - Wings
+CQUAD4        19       1      15      17      18      16
+CQUAD4        20       1      19      21      22      20
+$ Elements - Tail Fin
+CQUAD4        21       1      23      24      25      26
+ENDDATA
