@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { useThree } from '@react-three/fiber';
 import { FemShader } from '../FemShader';
 
-export function Part({ id, position, rotation = [0, 0, 0, 1], color, isShaded, isSelected, onSelect, onDrag, onDragEnd, isLocked, isDrawing }) {
+export function Part({ id, position, rotation = [0, 0, 0, 1], color, visMode, visible = true, isSelected, onSelect, onDrag, onDragEnd, isLocked, isDrawing }) {
     const geometry = useMemo(() => {
         const geo = new THREE.BoxGeometry(1, 1, 1);
         const count = geo.attributes.position.count;
@@ -26,12 +26,17 @@ export function Part({ id, position, rotation = [0, 0, 0, 1], color, isShaded, i
 
     useMemo(() => {
         uniforms.uColor.value.set(color);
-        uniforms.uShowStress.value = isShaded ? 1.0 : 0.0;
+
+        let modeVal = 0; // Contour/Stress
+        if (visMode === 'shaded') modeVal = 1;
+        if (visMode === 'hidden') modeVal = 2;
+        uniforms.uVisMode.value = modeVal;
+
         uniforms.uHighlight.value = isSelected ? 1.0 : 0.0;
-    }, [color, isShaded, isSelected, uniforms]);
+    }, [color, visMode, isSelected, uniforms]);
 
     const handlePointerDown = (e) => {
-        if (isLocked || isDrawing) return;
+        if (!visible || isLocked || isDrawing) return;
         e.stopPropagation();
         onSelect();
 
@@ -70,7 +75,6 @@ export function Part({ id, position, rotation = [0, 0, 0, 1], color, isShaded, i
             const targetWorldPos = intersectPoint.sub(dragOffset);
 
             // Grid Snapping
-            // Grid Snapping
             targetWorldPos.x = Math.floor(targetWorldPos.x) + 0.5;
             targetWorldPos.y = Math.floor(targetWorldPos.y) + 0.5;
             targetWorldPos.z = Math.floor(targetWorldPos.z) + 0.5;
@@ -92,25 +96,32 @@ export function Part({ id, position, rotation = [0, 0, 0, 1], color, isShaded, i
         }
     };
 
+    if (!visible) return null;
+
+    const showMesh = visMode !== 'wireframe';
+
     return (
-        <mesh
-            ref={meshRef}
-            position={position}
-            quaternion={quat}
-            geometry={geometry}
-            castShadow
-            receiveShadow
-            onPointerDown={handlePointerDown}
-            onPointerMove={handlePointerMove}
-            onPointerUp={handlePointerUp}
-            userData={{ isPart: true, partId: id }}
-        >
-            <shaderMaterial
-                attach="material"
-                args={[FemShader]}
-                uniforms={uniforms}
-                transparent
-            />
+        <group position={position} quaternion={quat}>
+            {showMesh && (
+                <mesh
+                    ref={meshRef}
+                    geometry={geometry}
+                    castShadow
+                    receiveShadow
+                    onPointerDown={handlePointerDown}
+                    onPointerMove={handlePointerMove}
+                    onPointerUp={handlePointerUp}
+                    userData={{ isPart: true, partId: id }}
+                >
+                    <shaderMaterial
+                        attach="material"
+                        args={[FemShader]}
+                        uniforms={uniforms}
+                        transparent
+                    />
+                </mesh>
+            )}
+
             <lineSegments>
                 <edgesGeometry args={[geometry]} />
                 <lineBasicMaterial color="white" opacity={0.5} transparent />
@@ -127,6 +138,6 @@ export function Part({ id, position, rotation = [0, 0, 0, 1], color, isShaded, i
             ].map((config, i) => (
                 <group key={i} position={config.pos} rotation={config.rot} userData={{ isSocket: true, socketIndex: i }} />
             ))}
-        </mesh>
+        </group>
     );
 }
