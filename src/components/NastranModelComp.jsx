@@ -6,7 +6,7 @@ import { Html } from '@react-three/drei';
 export function NastranModelComp({ data, color, visMode, showGridIDs, showElemIDs, showLoads, showSPC, visible = true }) {
     const { nodes, elements, loads } = data;
 
-    const { geometry, edges, elLabels, bars } = useMemo(() => {
+    const { geometry, freeEdges, interiorEdges, elLabels, bars } = useMemo(() => {
         const vertices = [];
         const indices = [];
         const stress = [];
@@ -83,29 +83,57 @@ export function NastranModelComp({ data, color, visMode, showGridIDs, showElemID
             labels.push({ id: el.id, pos: [centroid.x, centroid.y, centroid.z] });
         }
 
-        // Edges
-        const edgeVertices = [];
+        // Edge Analysis for Free Edges (Outline)
+        const edgeMap = new Map();
+        const addEdge = (n1, n2) => {
+            const k = [n1, n2].sort((a, b) => a - b).join('-');
+            edgeMap.set(k, (edgeMap.get(k) || 0) + 1);
+        };
+
         for (const el of elements) {
-            const p = el.nodes.map(nid => nodes.get(nid)).filter(n => !!n);
-            if (p.length < 2) continue;
-            if (el.type === 'CBAR') {
-                edgeVertices.push(p[0].x, p[0].y, p[0].z, p[1].x, p[1].y, p[1].z);
-            } else if (el.type === 'CQUAD4' && p.length === 4) {
-                for (let i = 0; i < 4; i++) {
-                    const n1 = p[i], n2 = p[(i + 1) % 4];
-                    edgeVertices.push(n1.x, n1.y, n1.z, n2.x, n2.y, n2.z);
-                }
+            const p = el.nodes;
+            if (el.type === 'CQUAD4' && p.length === 4) {
+                addEdge(p[0], p[1]); addEdge(p[1], p[2]); addEdge(p[2], p[3]); addEdge(p[3], p[0]);
             } else if (el.type === 'CTRIA3' && p.length === 3) {
-                for (let i = 0; i < 3; i++) {
-                    const n1 = p[i], n2 = p[(i + 1) % 3];
-                    edgeVertices.push(n1.x, n1.y, n1.z, n2.x, n2.y, n2.z);
+                addEdge(p[0], p[1]); addEdge(p[1], p[2]); addEdge(p[2], p[0]);
+            }
+        }
+
+        const freeEdgeVertices = [];
+        const interiorEdgeVertices = [];
+
+        // Build Edge Geometries
+        edgeMap.forEach((count, key) => {
+            const [n1Id, n2Id] = key.split('-').map(Number);
+            const p1 = nodes.get(n1Id);
+            const p2 = nodes.get(n2Id);
+            if (p1 && p2) {
+                if (count === 1) {
+                    freeEdgeVertices.push(p1.x, p1.y, p1.z, p2.x, p2.y, p2.z);
+                } else {
+                    interiorEdgeVertices.push(p1.x, p1.y, p1.z, p2.x, p2.y, p2.z);
+                }
+            }
+        });
+
+        // Add CBARs to Free Edges (they are always prominent)
+        for (const el of elements) {
+            if (el.type === 'CBAR') {
+                const p1 = nodes.get(el.nodes[0]);
+                const p2 = nodes.get(el.nodes[1]);
+                if (p1 && p2) {
+                    freeEdgeVertices.push(p1.x, p1.y, p1.z, p2.x, p2.y, p2.z);
                 }
             }
         }
-        const edgeGeo = new THREE.BufferGeometry();
-        edgeGeo.setAttribute('position', new THREE.Float32BufferAttribute(edgeVertices, 3));
 
-        return { geometry: geo, edges: edgeGeo, elLabels: labels, bars: barData };
+        const freeEdgeGeo = new THREE.BufferGeometry();
+        freeEdgeGeo.setAttribute('position', new THREE.Float32BufferAttribute(freeEdgeVertices, 3));
+
+        const interiorEdgeGeo = new THREE.BufferGeometry();
+        interiorEdgeGeo.setAttribute('position', new THREE.Float32BufferAttribute(interiorEdgeVertices, 3));
+
+        return { geometry: geo, freeEdges: freeEdgeGeo, interiorEdges: interiorEdgeGeo, elLabels: labels, bars: barData };
     }, [nodes, elements]);
 
     const uniforms = useMemo(() => {
@@ -160,8 +188,20 @@ export function NastranModelComp({ data, color, visMode, showGridIDs, showElemID
                 </mesh>
             ))}
 
-            <lineSegments geometry={edges} userData={{ isNastran: true }}>
-                <lineBasicMaterial color="white" opacity={0.6} depthTest={true} transparent />
+            {/* Free Edges (Outline) - Always prominent */}
+            <lineSegments geometry={freeEdges} userData={{ isNastran: true }}>
+                <lineBasicMaterial color="white" opacity={0.8} depthTest={true} transparent />
+            </lineSegments>
+
+            {/* Interior Edges - Dimmed or Hidden in non-wireframe modes */}
+            <lineSegments geometry={interiorEdges} userData={{ isNastran: true }}>
+                <lineBasicMaterial
+                    color="white"
+                    opacity={visMode === 'wireframe' ? 0.6 : 0.05}
+                    depthTest={true}
+                    transparent
+                    visible={visMode === 'wireframe' || visMode !== 'hidden'}
+                />
             </lineSegments>
 
             {/* Grid Labels */}
