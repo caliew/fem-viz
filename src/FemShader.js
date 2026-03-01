@@ -46,8 +46,8 @@ export const FemShader = {
 
         void main() {
             if (uVisMode > 1.5) {
-                // Hidden Line Mode: Flat color matching background (dark)
-                gl_FragColor = vec4(0.05, 0.05, 0.05, 1.0);
+                // Hidden Line Mode: Flat color matching background (#050505)
+                gl_FragColor = vec4(0.0196, 0.0196, 0.0196, 1.0);
                 return;
             }
 

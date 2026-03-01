@@ -113,11 +113,20 @@ export function NastranModelComp({ data, color, visMode, showGridIDs, showElemID
         <group>
             {showMesh && (
                 <mesh geometry={geometry} castShadow receiveShadow>
-                    <shaderMaterial attach="material" args={[FemShader]} uniforms={uniforms} transparent side={THREE.DoubleSide} />
+                    <shaderMaterial
+                        attach="material"
+                        args={[FemShader]}
+                        uniforms={uniforms}
+                        transparent
+                        side={THREE.DoubleSide}
+                        polygonOffset
+                        polygonOffsetFactor={1}
+                        polygonOffsetUnits={1}
+                    />
                 </mesh>
             )}
             <lineSegments geometry={edges}>
-                <lineBasicMaterial color="white" opacity={0.4} transparent depthTest={false} />
+                <lineBasicMaterial color="white" opacity={0.6} depthTest={true} transparent />
             </lineSegments>
 
             {/* Grid Labels */}
