@@ -113,6 +113,8 @@ export default function ProjectRoot() {
     const [showElemIDs, setShowElemIDs] = useState(false);
     const [showLoads, setShowLoads] = useState(false);
     const [importSummary, setImportSummary] = useState(null);
+    const [visMode, setVisMode] = useState('contour'); // 'contour', 'shaded', 'hidden', 'wireframe'
+    const [showBlocks, setShowBlocks] = useState(true);
 
     const palette = {
         '1': 0xef4444, '2': 0x22c55e, '3': 0x3b82f6,
@@ -214,6 +216,13 @@ export default function ProjectRoot() {
             if (key === 'p') setIsDrawing(prev => !prev);
             if (key === 'r') window.__G_ROTATE_MODE = !window.__G_ROTATE_MODE;
 
+            // Visualization Modes
+            if (key === 'c') setVisMode('contour');
+            if (key === 's') setVisMode('shaded');
+            if (key === 'h') setVisMode('hidden');
+            if (key === 'w') setVisMode('wireframe');
+            if (key === 'b') setShowBlocks(prev => !prev);
+
             if (window.__G_ROTATE_MODE && (key === 'x' || key === 'y' || key === 'z')) {
                 rotateSelected(key);
             }
@@ -233,6 +242,7 @@ export default function ProjectRoot() {
             const id = Math.random().toString(36).substr(2, 9);
             setElements(prev => [...prev, { id, type: 'nastran', data, color: currentColor }]);
             setImportSummary(data.summary);
+            setShowBlocks(false); // Hide blocks on BDF import
             setTimeout(fitCameraToObjects, 100);
         };
         reader.readAsText(file);
@@ -270,8 +280,8 @@ export default function ProjectRoot() {
                 }} onCancel={() => setIsDrawing(false)} />}
 
                 {elements.map(el => {
-                    if (el.type === 'block') return <Part key={el.id} id={el.id} position={el.position} rotation={el.rotation} color={el.color} isSelected={selectedId === el.id} onSelect={() => setSelectedId(el.id)} onDrag={handleDrag} onDragEnd={handleDragEnd} isLocked={isLocked} isDrawing={isDrawing} />;
-                    if (el.type === 'nastran') return <NastranModelComp key={el.id} data={el.data} color={el.color} showGridIDs={showGridIDs} showElemIDs={showElemIDs} showLoads={showLoads} />;
+                    if (el.type === 'block') return <Part key={el.id} id={el.id} position={el.position} rotation={el.rotation} color={el.color} visMode={visMode} visible={showBlocks} isSelected={selectedId === el.id} onSelect={() => setSelectedId(el.id)} onDrag={handleDrag} onDragEnd={handleDragEnd} isLocked={isLocked} isDrawing={isDrawing} />;
+                    if (el.type === 'nastran') return <NastranModelComp key={el.id} data={el.data} color={el.color} visMode={visMode} showGridIDs={showGridIDs} showElemIDs={showElemIDs} showLoads={showLoads} />;
                     if (el.type === 'floorplan') return <FloorplanModelComp key={el.id} points={el.points} color={el.color} />;
                     return null;
                 })}
@@ -280,10 +290,11 @@ export default function ProjectRoot() {
             <div id="overlay" style={{ position: 'absolute', top: '20px', left: '20px', pointerEvents: 'none', background: 'rgba(0,0,0,0.7)', padding: '20px', borderRadius: '8px', color: 'white', zIndex: 100 }}>
                 <h1 style={{ margin: 0, fontSize: '1.2rem' }}>Lego FEM Viz (R3F)</h1>
                 <div style={{ marginTop: '10px', fontWeight: 'bold' }}>
-                    Status: <span style={{ color: isLocked ? '#ef4444' : '#22c55e' }}>{isLocked ? 'LOCKED' : 'UNLOCKED'}</span>
+                    Status: <span style={{ color: isLocked ? '#ef4444' : '#22c55e' }}>{isLocked ? 'LOCKED' : 'UNLOCKED'}</span> |
+                    Mode: <span style={{ color: '#6366f1', textTransform: 'uppercase' }}>{visMode}</span>
                 </div>
                 <div style={{ marginTop: '5px', fontSize: '0.75rem', opacity: 0.8 }}>
-                    <b>L</b>: Lock | <b>R+X/Y/Z</b>: Rotate | <b>F</b>: Fit
+                    <b>L</b>: Lock | <b>W</b>: Wire | <b>H</b>: Hidden | <b>S</b>: Shaded | <b>C</b>: Contour | <b>F</b>: Fit
                 </div>
                 <div className="controls" style={{ marginTop: '15px', display: 'flex', flexWrap: 'wrap', gap: '5px', pointerEvents: 'auto' }}>
                     <button onClick={addPart} style={btnStyle('#2563eb')}>Add (A)</button>

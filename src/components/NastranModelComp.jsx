@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { FemShader } from '../FemShader';
 import { Html } from '@react-three/drei';
 
-export function NastranModelComp({ data, color, showGridIDs, showElemIDs, showLoads, showSPC }) {
+export function NastranModelComp({ data, color, visMode, showGridIDs, showElemIDs, showLoads, showSPC }) {
     const { nodes, elements, loads } = data;
 
     const { geometry, edges, elLabels } = useMemo(() => {
@@ -82,15 +82,25 @@ export function NastranModelComp({ data, color, showGridIDs, showElemIDs, showLo
     const uniforms = useMemo(() => {
         const u = THREE.UniformsUtils.clone(FemShader.uniforms);
         u.uColor.value.set(color);
-        u.uShowStress.value = 1.0;
+
+        // Mode Mapping: 0: Contour, 1: Shaded, 2: HiddenLine
+        let modeVal = 0;
+        if (visMode === 'shaded') modeVal = 1;
+        if (visMode === 'hidden') modeVal = 2;
+        u.uVisMode.value = modeVal;
+
         return u;
-    }, [color]);
+    }, [color, visMode]);
+
+    const showMesh = visMode !== 'wireframe';
 
     return (
         <group>
-            <mesh geometry={geometry} castShadow receiveShadow>
-                <shaderMaterial attach="material" args={[FemShader]} uniforms={uniforms} transparent side={THREE.DoubleSide} />
-            </mesh>
+            {showMesh && (
+                <mesh geometry={geometry} castShadow receiveShadow>
+                    <shaderMaterial attach="material" args={[FemShader]} uniforms={uniforms} transparent side={THREE.DoubleSide} />
+                </mesh>
+            )}
             <lineSegments geometry={edges}>
                 <lineBasicMaterial color="white" opacity={0.4} transparent depthTest={false} />
             </lineSegments>
