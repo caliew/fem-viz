@@ -28,15 +28,13 @@ export function FloorplanModelComp({ id, points, color, visMode, visible = true,
     const uniforms = useMemo(() => {
         const u = THREE.UniformsUtils.clone(FemShader.uniforms);
         u.uColor.value.set(color);
-        u.uUseVertexColor.value = 0.0; // Polygons use uniform color
+        u.uUseVertexColor.value = 0.0;
 
-        // Mode Mapping: 0: Contour, 1: Shaded, 2: HiddenLine
-        let modeVal = 0;
+        let modeVal = 0; // Contour
         if (visMode === 'shaded') modeVal = 1;
         if (visMode === 'hidden') modeVal = 2;
         u.uVisMode.value = modeVal;
         u.uHighlight.value = isSelected ? 1.0 : 0.0;
-
         return u;
     }, [color, visMode, isSelected]);
 
@@ -50,13 +48,20 @@ export function FloorplanModelComp({ id, points, color, visMode, visible = true,
     };
 
     return (
-        <group position={[0, 0.01, 0]} onPointerDown={handlePointerDown} userData={{ isPart: true, partId: id }}>
+        <group position={[0, 0.01, 0]}>
             {showMesh && (
-                <mesh geometry={geometry} castShadow receiveShadow>
+                <mesh
+                    key={`floorplan-mesh-${visMode}`}
+                    geometry={geometry}
+                    castShadow
+                    receiveShadow
+                    onPointerDown={handlePointerDown}
+                    userData={{ isPart: true, partId: id }}
+                >
                     <shaderMaterial
-                        key={visMode}
                         attach="material"
-                        args={[FemShader]}
+                        vertexShader={FemShader.vertexShader}
+                        fragmentShader={FemShader.fragmentShader}
                         uniforms={uniforms}
                         transparent
                         side={THREE.DoubleSide}
@@ -66,7 +71,7 @@ export function FloorplanModelComp({ id, points, color, visMode, visible = true,
                     />
                 </mesh>
             )}
-            <lineSegments>
+            <lineSegments onPointerDown={handlePointerDown}>
                 <edgesGeometry args={[geometry]} />
                 <lineBasicMaterial color="white" opacity={0.3} transparent />
             </lineSegments>

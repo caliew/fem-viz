@@ -97,14 +97,12 @@ export function NastranModelComp({ data, color, visMode, showGridIDs, showElemID
     const uniforms = useMemo(() => {
         const u = THREE.UniformsUtils.clone(FemShader.uniforms);
         u.uColor.value.set(color);
-        u.uUseVertexColor.value = 1.0; // Use PID Colors (vColor)
+        u.uUseVertexColor.value = 1.0;
 
-        // Mode Mapping: 0: Contour, 1: Shaded, 2: HiddenLine
-        let modeVal = 0;
+        let modeVal = 0; // Contour
         if (visMode === 'shaded') modeVal = 1;
         if (visMode === 'hidden') modeVal = 2;
         u.uVisMode.value = modeVal;
-
         return u;
     }, [color, visMode]);
 
@@ -115,18 +113,17 @@ export function NastranModelComp({ data, color, visMode, showGridIDs, showElemID
     return (
         <group userData={{ isNastran: true }}>
             {showMesh && (
-                <mesh geometry={geometry} castShadow receiveShadow userData={{ isNastran: true }}>
+                <mesh key={`nastran-mesh-${visMode}`} geometry={geometry} castShadow receiveShadow userData={{ isNastran: true }}>
                     <shaderMaterial
                         attach="material"
-                        fragmentShader={FemShader.fragmentShader}
                         vertexShader={FemShader.vertexShader}
+                        fragmentShader={FemShader.fragmentShader}
                         uniforms={uniforms}
                         transparent
                         side={THREE.DoubleSide}
                         polygonOffset
                         polygonOffsetFactor={1}
                         polygonOffsetUnits={1}
-                        vertexColors={true}
                     />
                 </mesh>
             )}
