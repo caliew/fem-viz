@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { FemShader } from '../FemShader';
 import { Html } from '@react-three/drei';
 
-export function NastranModelComp({ data, color, visMode, showGridIDs, showElemIDs, showLoads, showSPC }) {
+export function NastranModelComp({ data, color, visMode, showGridIDs, showElemIDs, showLoads, showSPC, visible = true }) {
     const { nodes, elements, loads } = data;
 
     const { geometry, edges, elLabels } = useMemo(() => {
@@ -11,7 +11,6 @@ export function NastranModelComp({ data, color, visMode, showGridIDs, showElemID
         const indices = [];
         const stress = [];
         const vertexColors = [];
-        let vertexCounter = 0;
 
         // PID to Color mapping
         const pidColors = new Map();
@@ -34,7 +33,8 @@ export function NastranModelComp({ data, color, visMode, showGridIDs, showElemID
 
                 pNodes.forEach(n => {
                     vertices.push(n.x, n.y, n.z);
-                    stress.push(Math.random());
+                    // Use a spatial gradient for stress to look realistic
+                    stress.push(Math.abs(n.y) / 10.0);
                     vertexColors.push(c[0], c[1], c[2]);
                 });
 
@@ -97,6 +97,7 @@ export function NastranModelComp({ data, color, visMode, showGridIDs, showElemID
     const uniforms = useMemo(() => {
         const u = THREE.UniformsUtils.clone(FemShader.uniforms);
         u.uColor.value.set(color);
+        u.uUseVertexColor.value = 1.0; // Use PID Colors (vColor)
 
         // Mode Mapping: 0: Contour, 1: Shaded, 2: HiddenLine
         let modeVal = 0;
@@ -109,37 +110,41 @@ export function NastranModelComp({ data, color, visMode, showGridIDs, showElemID
 
     const showMesh = visMode !== 'wireframe';
 
+    if (!visible) return null;
+
     return (
-        <group>
+        <group userData={{ isNastran: true }}>
             {showMesh && (
-                <mesh geometry={geometry} castShadow receiveShadow>
+                <mesh geometry={geometry} castShadow receiveShadow userData={{ isNastran: true }}>
                     <shaderMaterial
                         attach="material"
-                        args={[FemShader]}
+                        fragmentShader={FemShader.fragmentShader}
+                        vertexShader={FemShader.vertexShader}
                         uniforms={uniforms}
                         transparent
                         side={THREE.DoubleSide}
                         polygonOffset
                         polygonOffsetFactor={1}
                         polygonOffsetUnits={1}
+                        vertexColors={true}
                     />
                 </mesh>
             )}
-            <lineSegments geometry={edges}>
+            <lineSegments geometry={edges} userData={{ isNastran: true }}>
                 <lineBasicMaterial color="white" opacity={0.6} depthTest={true} transparent />
             </lineSegments>
 
             {/* Grid Labels */}
             {showGridIDs && Array.from(nodes).map(([id, pos]) => (
-                <Html key={`node-${id}`} position={[pos.x, pos.y, pos.z]} center distanceFactor={15}>
-                    <div style={{ color: '#fbbf24', fontSize: '10px', pointerEvents: 'none', fontWeight: 'bold', background: 'rgba(0,0,0,0.5)', padding: '1px 2px', borderRadius: '2px' }}>{id}</div>
+                <Html key={`node-${id}`} position={[pos.x, pos.y, pos.z]} center distanceFactor={10}>
+                    <div style={{ color: '#fbbf24', fontSize: '3px', fontWeight: 'normal', background: 'rgba(0,0,0,0.6)', padding: '1px 2px', borderRadius: '2px', pointerEvents: 'none' }}>{id}</div>
                 </Html>
             ))}
 
             {/* Elem Labels */}
             {showElemIDs && elLabels.map((lab, idx) => (
-                <Html key={`elem-${lab.id}-${idx}`} position={lab.pos} center distanceFactor={15}>
-                    <div style={{ color: '#38bdf8', fontSize: '10px', pointerEvents: 'none', fontWeight: 'bold', background: 'rgba(0,0,0,0.5)', padding: '1px 2px', borderRadius: '2px' }}>{lab.id}</div>
+                <Html key={`elem-${lab.id}-${idx}`} position={lab.pos} center distanceFactor={10}>
+                    <div style={{ color: '#38bdf8', fontSize: '3px', fontWeight: 'normal', background: 'rgba(0,0,0,0.6)', padding: '1px 2px', borderRadius: '2px', pointerEvents: 'none' }}>{lab.id}</div>
                 </Html>
             ))}
 

@@ -6,7 +6,8 @@ export const FemShader = {
         uColor: { value: new THREE.Color(0x2563eb) },
         uHighlight: { value: 0.0 },
         uVisMode: { value: 0.0 }, // 0: Contour, 1: Shaded, 2: HiddenLine
-        uLightPos: { value: new THREE.Vector3(10, 10, 10) }
+        uLightPos: { value: new THREE.Vector3(10, 10, 10) },
+        uUseVertexColor: { value: 0.0 } // 0: Use uColor, 1: Use vColor
     },
     vertexShader: `
         varying float vStress;
@@ -36,6 +37,7 @@ export const FemShader = {
         uniform vec3 uColor;
         uniform float uHighlight;
         uniform float uVisMode;
+        uniform float uUseVertexColor;
         
         vec3 colormap(float t) {
             float r = clamp(1.5 - abs(4.0 * t - 3.0), 0.0, 1.0);
@@ -62,8 +64,8 @@ export const FemShader = {
 
             vec3 baseColor;
             if (uVisMode > 0.5) {
-                // Shaded Mode: Use vertex color (PID)
-                baseColor = vColor;
+                // Shaded Mode: Use PID vertex color or uniform color
+                baseColor = (uUseVertexColor > 0.5) ? vColor : uColor;
             } else {
                 // Contour Mode: Stress color
                 baseColor = colormap(vStress);

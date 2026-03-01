@@ -113,7 +113,8 @@ export default function ProjectRoot() {
     const [showElemIDs, setShowElemIDs] = useState(false);
     const [showLoads, setShowLoads] = useState(false);
     const [importSummary, setImportSummary] = useState(null);
-    const [visMode, setVisMode] = useState('contour'); // 'contour', 'shaded', 'hidden', 'wireframe'
+    const [showFE, setShowFE] = useState(true);
+    const [visMode, setVisMode] = useState('shaded'); // wireframe, hidden, shaded, contour
     const [showBlocks, setShowBlocks] = useState(true);
 
     const palette = {
@@ -174,6 +175,10 @@ export default function ProjectRoot() {
 
         scene.traverse(obj => {
             if (obj.visible && (obj.userData?.isPart || obj.userData?.isNastran || obj.userData?.isFloorplan)) {
+                // Special check for Nastran/Parts groups based on global visibility
+                if (obj.userData?.isNastran && !showFE) return;
+                if (obj.userData?.isPart && !showBlocks) return;
+
                 boundingBox.expandByObject(obj);
                 hasVisible = true;
             }
@@ -188,23 +193,30 @@ export default function ProjectRoot() {
 
         const center = new THREE.Vector3();
         boundingBox.getCenter(center);
-        const size = new THREE.Vector3();
-        boundingBox.getSize(size);
 
-        const maxDim = Math.max(size.x, size.y, size.z);
+        const sphere = new THREE.Sphere();
+        boundingBox.getBoundingSphere(sphere);
+        const radius = sphere.radius;
+
         const fov = camera.fov * (Math.PI / 180);
-        let cameraDist = Math.abs(maxDim / 2 / Math.tan(fov / 2));
+        const aspect = camera.aspect;
 
-        cameraDist *= 1.2; // Optimzed Padding (was 2.5)
+        // Calculate distance based on both vertical and horizontal fov
+        const fovH = 2 * Math.atan(Math.tan(fov / 2) * aspect);
+        const fovMin = Math.min(fov, fovH);
+
+        let cameraDist = Math.abs(radius / Math.sin(fovMin / 2));
+        cameraDist *= 1.1; // Professional Padding
 
         const direction = new THREE.Vector3().subVectors(camera.position, controls.target).normalize();
-        if (direction.lengthSq() === 0) direction.set(1, 1, 1).normalize();
+        if (direction.lengthSq() === 0) direction.set(0, 0.5, 1).normalize();
+
         const newCameraPos = center.clone().add(direction.multiplyScalar(cameraDist));
 
         controls.target.copy(center);
         camera.position.copy(newCameraPos);
         controls.update();
-    }, []);
+    }, [showFE, showBlocks]);
 
     // Keybinds
     useEffect(() => {
@@ -239,11 +251,12 @@ export default function ProjectRoot() {
         const reader = new FileReader();
         reader.onload = (event) => {
             const parser = new NastranParser();
+            setShowFE(true);
+            setShowBlocks(false);
             const data = parser.parse(event.target.result);
             const id = Math.random().toString(36).substr(2, 9);
             setElements(prev => [...prev, { id, type: 'nastran', data, color: currentColor }]);
             setImportSummary(data.summary);
-            setShowBlocks(false); // Hide blocks on BDF import
             setTimeout(fitCameraToObjects, 100);
         };
         reader.readAsText(file);
@@ -278,12 +291,14 @@ export default function ProjectRoot() {
                     const id = Math.random().toString(36).substr(2, 9);
                     setElements(prev => [...prev, { id, type: 'floorplan', points, color: currentColor }]);
                     setIsDrawing(false);
+                    setShowBlocks(true); // Ensure new draws are visible
+                    setShowFE(false);
                 }} onCancel={() => setIsDrawing(false)} />}
 
                 {elements.map(el => {
                     if (el.type === 'block') return <Part key={el.id} id={el.id} position={el.position} rotation={el.rotation} color={el.color} visMode={visMode} visible={showBlocks} isSelected={selectedId === el.id} onSelect={() => setSelectedId(el.id)} onDrag={handleDrag} onDragEnd={handleDragEnd} isLocked={isLocked} isDrawing={isDrawing} />;
-                    if (el.type === 'nastran') return <NastranModelComp key={el.id} data={el.data} color={el.color} visMode={visMode} showGridIDs={showGridIDs} showElemIDs={showElemIDs} showLoads={showLoads} />;
-                    if (el.type === 'floorplan') return <FloorplanModelComp key={el.id} points={el.points} color={el.color} />;
+                    if (el.type === 'nastran') return <NastranModelComp key={el.id} data={el.data} color={el.color} visMode={visMode} showGridIDs={showGridIDs} showElemIDs={showElemIDs} showLoads={showLoads} visible={showFE} />;
+                    if (el.type === 'floorplan') return <FloorplanModelComp key={el.id} id={el.id} points={el.points} color={el.color} visMode={visMode} visible={showBlocks} isSelected={selectedId === el.id} onSelect={() => setSelectedId(el.id)} />;
                     return null;
                 })}
             </Canvas>
@@ -312,11 +327,32 @@ export default function ProjectRoot() {
 
                 {importSummary && (
                     <div style={{ marginTop: '15px', padding: '10px', background: 'rgba(30,41,59,0.9)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', fontSize: '0.8rem', pointerEvents: 'auto', backdropFilter: 'blur(10px)', width: '220px' }}>
+                        <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
+                            <button
+                                onClick={() => {
+                                    setShowBlocks(true); setShowFE(false);
+                                    setTimeout(fitCameraToObjects, 50);
+                                }}
+                                style={{ padding: '6px 12px', background: showBlocks ? '#2563eb' : '#334155', border: 'none', color: 'white', borderRadius: '4px', cursor: 'pointer', flex: 1, fontSize: '11px' }}
+                            >
+                                Lego & Plot
+                            </button>
+                            <button
+                                onClick={() => {
+                                    setShowBlocks(false); setShowFE(true);
+                                    setTimeout(fitCameraToObjects, 50);
+                                }}
+                                style={{ padding: '6px 12px', background: showFE ? '#2563eb' : '#334155', border: 'none', color: 'white', borderRadius: '4px', cursor: 'pointer', flex: 1, fontSize: '11px' }}
+                            >
+                                FE Model
+                            </button>
+                        </div>
+
                         <div style={{ fontWeight: 'bold', marginBottom: '8px', borderBottom: '1px solid #444', paddingBottom: '4px' }}>Import Statistics</div>
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px' }}>
                             <span>Grids:</span> <span style={{ textAlign: 'right', color: '#fbbf24' }}>{importSummary.nodes}</span>
                             <span>Elements:</span> <span style={{ textAlign: 'right', color: '#38bdf8' }}>{importSummary.elements}</span>
-                            <span>Points:</span> <span style={{ textAlign: 'right' }}>{importSummary.properties}</span>
+                            <span>Property:</span> <span style={{ textAlign: 'right' }}>{importSummary.properties}</span>
                             <span>Material:</span> <span style={{ textAlign: 'right' }}>{importSummary.materials}</span>
                         </div>
                         {importSummary.warnings.length > 0 && (

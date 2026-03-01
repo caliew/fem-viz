@@ -26,6 +26,7 @@ export function Part({ id, position, rotation = [0, 0, 0, 1], color, visMode, vi
 
     useMemo(() => {
         uniforms.uColor.value.set(color);
+        uniforms.uUseVertexColor.value = 0.0; // Use uColor
 
         let modeVal = 0; // Contour/Stress
         if (visMode === 'shaded') modeVal = 1;
@@ -79,10 +80,6 @@ export function Part({ id, position, rotation = [0, 0, 0, 1], color, visMode, vi
             targetWorldPos.y = Math.floor(targetWorldPos.y) + 0.5;
             targetWorldPos.z = Math.floor(targetWorldPos.z) + 0.5;
 
-            // MOVE MESH DIRECTLY FOR SMOOTH SNAPPING
-            meshRef.current.position.set(targetWorldPos.x, targetWorldPos.y, targetWorldPos.z);
-            meshRef.current.updateMatrixWorld();
-
             onDrag(id, targetWorldPos);
         }
     };
@@ -114,6 +111,7 @@ export function Part({ id, position, rotation = [0, 0, 0, 1], color, visMode, vi
                     userData={{ isPart: true, partId: id }}
                 >
                     <shaderMaterial
+                        key={`shader-${visMode}`}
                         attach="material"
                         args={[FemShader]}
                         uniforms={uniforms}

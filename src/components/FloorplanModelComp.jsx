@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import * as THREE from 'three';
 import { FemShader } from '../FemShader';
 
-export function FloorplanModelComp({ points, color, isShaded }) {
+export function FloorplanModelComp({ id, points, color, visMode, visible = true, isSelected, onSelect }) {
     const geometry = useMemo(() => {
         if (!points || points.length < 3) return null;
 
@@ -28,19 +28,48 @@ export function FloorplanModelComp({ points, color, isShaded }) {
     const uniforms = useMemo(() => {
         const u = THREE.UniformsUtils.clone(FemShader.uniforms);
         u.uColor.value.set(color);
-        u.uShowStress.value = isShaded ? 1.0 : 0.0;
-        return u;
-    }, [color, isShaded]);
+        u.uUseVertexColor.value = 0.0; // Polygons use uniform color
 
-    if (!geometry) return null;
+        // Mode Mapping: 0: Contour, 1: Shaded, 2: HiddenLine
+        let modeVal = 0;
+        if (visMode === 'shaded') modeVal = 1;
+        if (visMode === 'hidden') modeVal = 2;
+        u.uVisMode.value = modeVal;
+        u.uHighlight.value = isSelected ? 1.0 : 0.0;
+
+        return u;
+    }, [color, visMode, isSelected]);
+
+    if (!geometry || !visible) return null;
+
+    const showMesh = visMode !== 'wireframe';
+
+    const handlePointerDown = (e) => {
+        e.stopPropagation();
+        onSelect();
+    };
 
     return (
-        <mesh geometry={geometry} position={[0, 0.01, 0]} castShadow receiveShadow>
-            <shaderMaterial attach="material" args={[FemShader]} uniforms={uniforms} transparent side={THREE.DoubleSide} />
+        <group position={[0, 0.01, 0]} onPointerDown={handlePointerDown} userData={{ isPart: true, partId: id }}>
+            {showMesh && (
+                <mesh geometry={geometry} castShadow receiveShadow>
+                    <shaderMaterial
+                        key={visMode}
+                        attach="material"
+                        args={[FemShader]}
+                        uniforms={uniforms}
+                        transparent
+                        side={THREE.DoubleSide}
+                        polygonOffset
+                        polygonOffsetFactor={1}
+                        polygonOffsetUnits={1}
+                    />
+                </mesh>
+            )}
             <lineSegments>
                 <edgesGeometry args={[geometry]} />
                 <lineBasicMaterial color="white" opacity={0.3} transparent />
             </lineSegments>
-        </mesh>
+        </group>
     );
 }
