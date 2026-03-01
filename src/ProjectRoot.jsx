@@ -195,9 +195,10 @@ export default function ProjectRoot() {
         const fov = camera.fov * (Math.PI / 180);
         let cameraDist = Math.abs(maxDim / 2 / Math.tan(fov / 2));
 
-        cameraDist *= 2.5; // Padding
+        cameraDist *= 1.2; // Optimzed Padding (was 2.5)
 
         const direction = new THREE.Vector3().subVectors(camera.position, controls.target).normalize();
+        if (direction.lengthSq() === 0) direction.set(1, 1, 1).normalize();
         const newCameraPos = center.clone().add(direction.multiplyScalar(cameraDist));
 
         controls.target.copy(center);

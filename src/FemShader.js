@@ -12,10 +12,14 @@ export const FemShader = {
         varying float vStress;
         varying vec3 vNormal;
         varying vec3 vViewPosition;
+        varying vec3 vColor;
+        
         attribute float stress;
+        attribute vec3 color;
         
         void main() {
             vStress = stress;
+            vColor = color;
             vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
             vViewPosition = -mvPosition.xyz;
             vNormal = normalize(normalMatrix * normal);
@@ -26,6 +30,7 @@ export const FemShader = {
         varying float vStress;
         varying vec3 vNormal;
         varying vec3 vViewPosition;
+        varying vec3 vColor;
         
         uniform float uShowStress;
         uniform vec3 uColor;
@@ -57,8 +62,8 @@ export const FemShader = {
 
             vec3 baseColor;
             if (uVisMode > 0.5) {
-                // Shaded Mode: Single color
-                baseColor = uColor;
+                // Shaded Mode: Use vertex color (PID)
+                baseColor = vColor;
             } else {
                 // Contour Mode: Stress color
                 baseColor = colormap(vStress);

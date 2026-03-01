@@ -10,31 +10,46 @@ export function NastranModelComp({ data, color, visMode, showGridIDs, showElemID
         const vertices = [];
         const indices = [];
         const stress = [];
-        const nodeToVertexIndex = new Map();
+        const vertexColors = [];
         let vertexCounter = 0;
 
-        // Populate vertices
-        nodes.forEach((pos, id) => {
-            vertices.push(pos.x, pos.y, pos.z);
-            nodeToVertexIndex.set(id, vertexCounter++);
-            stress.push(Math.random());
-        });
+        // PID to Color mapping
+        const pidColors = new Map();
+        const getPidColor = (pid) => {
+            if (!pidColors.has(pid)) {
+                const c = new THREE.Color().setHSL(Math.random(), 0.7, 0.5);
+                pidColors.set(pid, [c.r, c.g, c.b]);
+            }
+            return pidColors.get(pid);
+        };
 
-        // Populate indices
-        for (const el of elements) {
+        // We duplicate vertices per element to ensure sharp PID boundaries and flat shading
+        elements.forEach(el => {
             if (el.type === 'CQUAD4' || el.type === 'CTRIA3') {
-                const i = el.nodes.map(nid => nodeToVertexIndex.get(nid));
-                if (el.type === 'CQUAD4' && i.every(idx => idx !== undefined)) {
-                    indices.push(i[0], i[1], i[2], i[0], i[2], i[3]);
-                } else if (el.type === 'CTRIA3' && i.every(idx => idx !== undefined)) {
-                    indices.push(i[0], i[1], i[2]);
+                const pNodes = el.nodes.map(nid => nodes.get(nid));
+                if (pNodes.some(n => !n)) return;
+
+                const c = getPidColor(el.pid || 0);
+                const startIdx = vertices.length / 3;
+
+                pNodes.forEach(n => {
+                    vertices.push(n.x, n.y, n.z);
+                    stress.push(Math.random());
+                    vertexColors.push(c[0], c[1], c[2]);
+                });
+
+                if (el.type === 'CQUAD4') {
+                    indices.push(startIdx, startIdx + 1, startIdx + 2, startIdx, startIdx + 2, startIdx + 3);
+                } else if (el.type === 'CTRIA3') {
+                    indices.push(startIdx, startIdx + 1, startIdx + 2);
                 }
             }
-        }
+        });
 
         const geo = new THREE.BufferGeometry();
         geo.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
         geo.setAttribute('stress', new THREE.Float32BufferAttribute(stress, 1));
+        geo.setAttribute('color', new THREE.Float32BufferAttribute(vertexColors, 3));
         geo.setIndex(indices);
         geo.computeVertexNormals();
 
