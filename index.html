@@ -93,43 +93,8 @@
 </head>
 
 <body>
-    <div id="canvas-container"></div>
-    <div id="overlay">
-        <h1>Lego FEM Viz</h1>
-        <p>Drag parts to assemble. Auto-joining enabled.</p>
-        <p style="font-size: 0.8rem; opacity: 0.5; margin-top: 5px;">Hold <b>Shift</b> to move vertically.</p>
-        <p style="font-size: 0.8rem; opacity: 0.5; margin-top: 2px;"><b>A</b>: Add | <b>D</b>: Delete | <b>R+X/Y/Z</b>:
-            Rotate | <b>L</b>: Lock | <b>S</b>: Mode | <b>F</b>: Fit | <b>P</b>: Draw Room</p>
-        <p style="font-size: 0.8rem; opacity: 0.5; margin-top: 2px;">Polygon Mode: <b>Enter</b>: Finish | <b>Esc</b>:
-            Cancel</p>
-
-        <div id="status" style="margin-top: 10px; font-weight: bold;">Status: <span
-                style="color: #22c55e;">UNLOCKED</span> | Mode: <span style="color: #3b82f6;">STRESS</span></div>
-
-        <div class="palette-menu">
-            <div class="color-swatch" style="background: #ef4444;" data-key="1">1</div>
-            <div class="color-swatch" style="background: #22c55e;" data-key="2">2</div>
-            <div class="color-swatch" style="background: #3b82f6;" data-key="3">3</div>
-            <div class="color-swatch" style="background: #eab308;" data-key="4">4</div>
-            <div class="color-swatch" style="background: #a855f7;" data-key="5">5</div>
-            <div class="color-swatch" style="background: #06b6d4;" data-key="6">6</div>
-            <div class="color-swatch" style="background: #f97316;" data-key="7">7</div>
-            <div class="color-swatch" style="background: #ec4899;" data-key="8">8</div>
-            <div class="color-swatch" style="background: #ffffff;" data-key="9">9</div>
-        </div>
-
-        <div class="controls">
-            <button id="add-part">Add Block</button>
-            <button id="reset-view" style="background: #1e293b;">Reset View</button>
-            <button id="draw-room" style="background: #3b82f6;">Draw Room</button>
-            <button id="import-nastran" style="background: #6d28d9;">Import BDF</button>
-            <button id="toggle-grid-ids" style="background: #475569;">Grid IDs</button>
-            <button id="toggle-elem-ids" style="background: #475569;">Elem IDs</button>
-            <button id="toggle-loads" style="background: #ef4444;">Loads</button>
-            <button id="toggle-spc" style="background: #22c55e;">Constraints</button>
-        </div>
-    </div>
-    <script type="module" src="/src/main.js"></script>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
 </body>
 
 </html>

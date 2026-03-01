@@ -8,6 +8,17 @@ export class NastranParser {
         this.materials = new Map();  // MID -> {e, nu, rho}
         this.loads = [];             // Array of {nodeId, magnitude, direction}
         this.constraints = [];       // Array of {nodeId, dof}
+        this.summary = {
+            nodes: 0,
+            elements: 0,
+            elemTypes: {},
+            properties: 0,
+            materials: 0,
+            loads: 0,
+            constraints: 0,
+            warnings: [],
+            errors: []
+        };
         this.clear();
     }
 
@@ -18,6 +29,17 @@ export class NastranParser {
         this.materials.clear();
         this.loads = [];
         this.constraints = [];
+        this.summary = {
+            nodes: 0,
+            elements: 0,
+            elemTypes: {},
+            properties: 0,
+            materials: 0,
+            loads: 0,
+            constraints: 0,
+            warnings: [],
+            errors: []
+        };
     }
 
     parse(text) {
@@ -52,6 +74,7 @@ export class NastranParser {
             else if (cardName === 'PSHELL') this.parsePShell(fields);
             else if (cardName === 'PROD') this.parsePRod(fields);
             else if (cardName === 'PBAR') this.parsePBar(fields);
+            else if (cardName === 'PBARL') this.parsePBarL(fields);
             else if (cardName === 'PSOLID') this.parsePSolid(fields);
 
             // Material
@@ -62,6 +85,7 @@ export class NastranParser {
             else if (cardName === 'SPC' || cardName === 'SPC1') this.parseSPC(fields);
         }
 
+        this.updateSummary();
         console.log(`NastranParser: Parse complete. Nodes: ${this.nodes.size}, Elements: ${this.elements.length}, Loads: ${this.loads.length}`);
 
         return {
@@ -70,8 +94,39 @@ export class NastranParser {
             properties: this.properties,
             materials: this.materials,
             loads: this.loads,
-            constraints: this.constraints
+            constraints: this.constraints,
+            summary: this.summary
         };
+    }
+
+    updateSummary() {
+        this.summary.nodes = this.nodes.size;
+        this.summary.elements = this.elements.length;
+        this.summary.properties = this.properties.size;
+        this.summary.materials = this.materials.size;
+        this.summary.loads = this.loads.length;
+        this.summary.constraints = this.constraints.length;
+
+        this.summary.elemTypes = {};
+        const warningSet = new Set();
+
+        this.elements.forEach(el => {
+            if (!el.type) return;
+            this.summary.elemTypes[el.type] = (this.summary.elemTypes[el.type] || 0) + 1;
+
+            // Validate nodes
+            el.nodes.forEach(nid => {
+                if (!this.nodes.has(nid)) {
+                    warningSet.add(`Element ${el.id} (${el.type}) refers to missing node ${nid}`);
+                }
+            });
+        });
+
+        this.summary.warnings = Array.from(warningSet);
+
+        // Basic sanity checks
+        if (this.summary.nodes === 0) this.summary.warnings.push("No GRID points found.");
+        if (this.summary.elements === 0) this.summary.warnings.push("No elements found.");
     }
 
     /**
@@ -118,6 +173,7 @@ export class NastranParser {
 
         const num = parseFloat(s);
         if (isNaN(num)) {
+            this.summary.errors.push(`Failed to parse number "${val}"`);
             console.warn(`NastranParser: Failed to parse number "${val}"`);
             return 0;
         }
@@ -210,6 +266,13 @@ export class NastranParser {
         const mid = parseInt(fields[2]);
         const a = this.parseNumber(fields[3]);
         this.properties.set(pid, { type: 'PBAR', mid, a });
+    }
+
+    parsePBarL(fields) {
+        // PBARL PID MID ... GROUP TYPE
+        const pid = parseInt(fields[1]);
+        const mid = parseInt(fields[2]);
+        this.properties.set(pid, { type: 'PBARL', mid });
     }
 
     parsePSolid(fields) {

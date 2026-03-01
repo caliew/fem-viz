@@ -1,21 +1,19 @@
-# Task: Refined FEM assembly interaction
+# Task: Evaluate and Plan Upgrade to React Three Fiber
 
-- [x] Research and recommend WebGL libraries for FEM <!-- id: 0 -->
-- [x] Create an implementation plan for a starter project <!-- id: 1 -->
-- [x] Set up a basic Three.js boilerplate with draggable parts <!-- id: 2 -->
-- [x] Research Three.js snapping and interaction libraries <!-- id: 5 -->
-- [x] Design the 'Attachment Point' (Socket) data structure <!-- id: 6 -->
-- [x] Implement snapping/auto-joining logic <!-- id: 7 -->
-- [x] Implement FEM colormap shader for Stress/Strain <!-- id: 8 -->
-- [x] Add wireframe edges to modular parts <!-- id: 11 -->
-- [x] Implement 'A' key for Autoscale (Zoom to Fit) <!-- id: 12 -->
-- [x] Explain source code structure to user <!-- id: 18 -->
-- [x] Copy agent artifacts to project folder <!-- id: 19 -->
-- [x] Refine Grid Snapping (Center-in-cell) for Add/Move <!-- id: 20 -->
-- [x] Implement Numeric Color Palette (Keys 1-9) <!-- id: 21 -->
-- [x] Implement UI Color Menu <!-- id: 22 -->
-- [x] Implement 'D' for Delete <!-- id: 23 -->
-- [x] Refine Rotation (R + X/Y/Z for 45 deg local) <!-- id: 24 -->
-- [x] Fix Rotation Snapping (Preserve tilts) <!-- id: 10 -->
-- [x] Implement Assembly Parenting (Lego-style grouping) <!-- id: 25 -->
-- [x] Verify functionality and provide a walkthrough <!-- id: 4 -->
+- [x] Analyze current architecture vs R3F patterns <!-- id: 0 -->
+- [x] Research performance implications for FEA data <!-- id: 1 -->
+- [x] Draft implementation plan for React migration <!-- id: 2 -->
+- [x] Get user approval for migration <!-- id: 3 -->
+- [x] Execute migration (if approved) <!-- id: 4 -->
+    - [x] Install dependencies (React, R3F, Drei) <!-- id: 5 -->
+    - [x] Restore Vanilla Parity <!-- id: 9 -->
+        - [x] Fix color update for selected part <!-- id: 10 -->
+        - [x] Proper Grid/Elem ID labels for Nastran <!-- id: 11 -->
+        - [x] Precise snapping and hierarchical parenting <!-- id: 12 -->
+        - [x] Predictable "Add Block" position <!-- id: 13 -->
+    - [x] Refactor `App` to `ProjectRoot.jsx` <!-- id: 6 -->
+    - [x] Convert `NastranModel` and `FloorplanModel` to R3F components <!-- id: 7 -->
+    - [x] Fix Interaction Bugs <!-- id: 14 -->
+        - [x] Restore 'F' key for Fit View <!-- id: 15 -->
+        - [x] Fix Drawing mode interference from blocks <!-- id: 16 -->
+        - [x] Improve snapping "break-free" and drag smoothness <!-- id: 17 -->

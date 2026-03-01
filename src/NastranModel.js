@@ -12,10 +12,6 @@ export class NastranModel {
         this.constraints = parsedData.constraints || [];
 
         this.color = color;
-        this.propertyPalette = [
-            0x22c55e, 0x3b82f6, 0xf59e0b, 0xec4899,
-            0x06b6d4, 0x8b5cf6, 0xef4444, 0x10b981
-        ];
 
         this.initGeometry();
         this.initLabels();
@@ -209,6 +205,7 @@ export class NastranModel {
         this.gridLabels.visible = gridVisible;
         this.elemLabels.visible = elemVisible;
     }
+
 
     setPosition(x, y, z) {
         this.mesh.position.set(x, y, z);

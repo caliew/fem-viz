@@ -1,0 +1,24 @@
+body {
+    margin: 0;
+    overflow: hidden;
+    font-family: 'Inter', sans-serif;
+    background: #050505;
+    color: white;
+}
+
+#root {
+    width: 100vw;
+    height: 100vh;
+}
+
+button {
+    transition: background 0.2s, transform 0.1s;
+}
+
+button:hover {
+    filter: brightness(1.1);
+}
+
+button:active {
+    transform: scale(0.98);
+}
