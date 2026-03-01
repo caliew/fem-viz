@@ -73,7 +73,7 @@ export function FloorplanModelComp({ id, points, color, visMode, visible = true,
             )}
             <lineSegments onPointerDown={handlePointerDown}>
                 <edgesGeometry args={[geometry]} />
-                <lineBasicMaterial color="white" opacity={0.3} transparent />
+                <lineBasicMaterial color="white" opacity={0.6} transparent />
             </lineSegments>
         </group>
     );

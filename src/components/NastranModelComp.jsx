@@ -6,11 +6,12 @@ import { Html } from '@react-three/drei';
 export function NastranModelComp({ data, color, visMode, showGridIDs, showElemIDs, showLoads, showSPC, visible = true }) {
     const { nodes, elements, loads } = data;
 
-    const { geometry, edges, elLabels } = useMemo(() => {
+    const { geometry, edges, elLabels, bars } = useMemo(() => {
         const vertices = [];
         const indices = [];
         const stress = [];
         const vertexColors = [];
+        const barData = [];
 
         // PID to Color mapping
         const pidColors = new Map();
@@ -42,6 +43,19 @@ export function NastranModelComp({ data, color, visMode, showGridIDs, showElemID
                     indices.push(startIdx, startIdx + 1, startIdx + 2, startIdx, startIdx + 2, startIdx + 3);
                 } else if (el.type === 'CTRIA3') {
                     indices.push(startIdx, startIdx + 1, startIdx + 2);
+                }
+            } else if (el.type === 'CBAR') {
+                const p1 = nodes.get(el.nodes[0]);
+                const p2 = nodes.get(el.nodes[1]);
+                if (p1 && p2) {
+                    const v1 = new THREE.Vector3(p1.x, p1.y, p1.z);
+                    const v2 = new THREE.Vector3(p2.x, p2.y, p2.z);
+                    const dist = v1.distanceTo(v2);
+                    const center = v1.clone().add(v2).multiplyScalar(0.5);
+                    const dir = v2.clone().sub(v1).normalize();
+                    const quat = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
+                    const c = getPidColor(el.pid || 0);
+                    barData.push({ id: el.id, pos: center, quat, height: dist, color: new THREE.Color(c[0], c[1], c[2]) });
                 }
             }
         });
@@ -91,7 +105,7 @@ export function NastranModelComp({ data, color, visMode, showGridIDs, showElemID
         const edgeGeo = new THREE.BufferGeometry();
         edgeGeo.setAttribute('position', new THREE.Float32BufferAttribute(edgeVertices, 3));
 
-        return { geometry: geo, edges: edgeGeo, elLabels: labels };
+        return { geometry: geo, edges: edgeGeo, elLabels: labels, bars: barData };
     }, [nodes, elements]);
 
     const uniforms = useMemo(() => {
@@ -127,6 +141,25 @@ export function NastranModelComp({ data, color, visMode, showGridIDs, showElemID
                     />
                 </mesh>
             )}
+
+            {showMesh && bars.map(bar => (
+                <mesh key={`bar-${bar.id}-${visMode}`} position={bar.pos} quaternion={bar.quat} castShadow receiveShadow userData={{ isNastran: true }}>
+                    <cylinderGeometry args={[0.03, 0.03, bar.height, 8]} />
+                    <shaderMaterial
+                        attach="material"
+                        vertexShader={FemShader.vertexShader}
+                        fragmentShader={FemShader.fragmentShader}
+                        uniforms={{
+                            ...uniforms,
+                            uColor: { value: bar.color },
+                            uUseVertexColor: { value: 0.0 } // Use uniform color for bar
+                        }}
+                        transparent
+                        side={THREE.DoubleSide}
+                    />
+                </mesh>
+            ))}
+
             <lineSegments geometry={edges} userData={{ isNastran: true }}>
                 <lineBasicMaterial color="white" opacity={0.6} depthTest={true} transparent />
             </lineSegments>

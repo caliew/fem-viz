@@ -285,7 +285,7 @@ export default function ProjectRoot() {
                 <OrbitControls makeDefault enableDamping rotateSpeed={0.5} />
                 <ambientLight intensity={0.6} />
                 <pointLight position={[10, 10, 10]} castShadow />
-                <Grid infiniteGrid fadeDistance={30} sectionColor="#333" cellColor="#222" sectionSize={1} cellSize={1} />
+                <Grid infiniteGrid fadeDistance={30} sectionColor="#666" cellColor="#444" sectionSize={1} cellSize={1} />
 
                 {isDrawing && <DrawingSystem onFinish={(points) => {
                     const id = Math.random().toString(36).substr(2, 9);
