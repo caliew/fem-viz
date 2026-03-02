@@ -95,9 +95,6 @@ function SceneListener({ onSceneInit }) {
     return null;
 }
 
-const btnStyle = (bg, color = 'white', width = 'auto') => ({ background: bg, color: color, width: width, border: 'none', padding: '8px 12px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: '600', transition: 'filter 0.2s' });
-const statBox = { background: 'rgba(255,255,255,0.05)', padding: '10px', borderRadius: '8px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', border: '1px solid rgba(255,255,255,0.1)' };
-
 export default function ProjectRoot() {
     const [elements, setElements] = useState([
         { id: 'initial-1', type: 'block', position: [0.5, 0.5, 0], rotation: [0, 0, 0, 1], color: 0xef4444 },
@@ -278,7 +275,7 @@ export default function ProjectRoot() {
     };
 
     return (
-        <div style={{ width: '100vw', height: '100vh', background: '#050505' }}>
+        <div className="canvas-wrapper">
             <Canvas shadows onPointerMissed={() => setSelectedId(null)}>
                 <SceneListener onSceneInit={() => { }} />
                 <PerspectiveCamera makeDefault position={[10, 10, 10]} />
@@ -303,37 +300,41 @@ export default function ProjectRoot() {
                 })}
             </Canvas>
 
-            <div id="overlay" style={{ position: 'absolute', top: '20px', left: '20px', pointerEvents: 'none', background: 'rgba(0,0,0,0.7)', padding: '20px', borderRadius: '8px', color: 'white', zIndex: 100 }}>
-                <h1 style={{ margin: 0, fontSize: '1.2rem' }}>Lego FEM Viz (R3F)</h1>
-                <div style={{ marginTop: '10px', fontWeight: 'bold' }}>
-                    Status: <span style={{ color: isLocked ? '#ef4444' : '#22c55e' }}>{isLocked ? 'LOCKED' : 'UNLOCKED'}</span> |
-                    Mode: <span style={{ color: '#6366f1', textTransform: 'uppercase' }}>{visMode}</span>
+            <div className="ui-overlay">
+                <h1 className="ui-title">Lego FEM Viz (R3F)</h1>
+                <div className="status-bar">
+                    Status: <span className="status-tag" style={{ color: isLocked ? '#ef4444' : '#22c55e' }}>{isLocked ? 'LOCKED' : 'UNLOCKED'}</span> |
+                    Mode: <span className="status-tag" style={{ color: '#6366f1' }}>{visMode}</span>
                 </div>
-                <div style={{ marginTop: '5px', fontSize: '0.75rem', opacity: 0.8 }}>
+                <div className="keybind-hint">
                     <b>L</b>: Lock | <b>W</b>: Wire | <b>H</b>: Hidden | <b>S</b>: Shaded | <b>C</b>: Contour | <b>F</b>: Fit
                 </div>
-                <div className="controls" style={{ marginTop: '15px', display: 'flex', flexWrap: 'wrap', gap: '5px', pointerEvents: 'auto' }}>
-                    <button onClick={addPart} style={btnStyle('#2563eb')}>Add (A)</button>
-                    <button onClick={() => setIsDrawing(!isDrawing)} style={btnStyle(isDrawing ? '#ef4444' : '#3b82f6')}>{isDrawing ? 'Cancel' : 'Draw (P)'}</button>
-                    <button onClick={deletePart} style={btnStyle('#ef4444')}>Del</button>
-                    <button onClick={() => document.getElementById('nastran-input').click()} style={btnStyle('#6d28d9')}>BDF</button>
+
+                <div className="controls-group">
+                    <button onClick={addPart} className="btn btn-primary">Add (A)</button>
+                    <button onClick={() => setIsDrawing(!isDrawing)} className={`btn ${isDrawing ? 'btn-danger' : 'btn-secondary'}`}>
+                        {isDrawing ? 'Cancel' : 'Draw (P)'}
+                    </button>
+                    <button onClick={deletePart} className="btn btn-danger">Del</button>
+                    <button onClick={() => document.getElementById('nastran-input').click()} className="btn btn-accent">BDF</button>
                     <input id="nastran-input" type="file" accept=".bdf,.dat" onChange={handleImportNastran} style={{ display: 'none' }} />
                 </div>
-                <div style={{ marginTop: '10px', display: 'flex', flexWrap: 'wrap', gap: '5px', pointerEvents: 'auto' }}>
-                    <button onClick={() => setShowGridIDs(!showGridIDs)} style={btnStyle(showGridIDs ? '#fbbf24' : '#475569', showGridIDs ? 'black' : 'white')}>Grids</button>
-                    <button onClick={() => setShowElemIDs(!showElemIDs)} style={btnStyle(showElemIDs ? '#38bdf8' : '#475569', showElemIDs ? 'black' : 'white')}>Elems</button>
-                    <button onClick={() => setShowLoads(!showLoads)} style={btnStyle(showLoads ? '#ef4444' : '#475569')}>Loads</button>
+
+                <div className="controls-group" style={{ marginTop: '10px' }}>
+                    <button onClick={() => setShowGridIDs(!showGridIDs)} className={`btn ${showGridIDs ? 'btn-active' : 'btn-outline'}`}>Grids</button>
+                    <button onClick={() => setShowElemIDs(!showElemIDs)} className={`btn ${showElemIDs ? 'btn-active-blue' : 'btn-outline'}`}>Elems</button>
+                    <button onClick={() => setShowLoads(!showLoads)} className={`btn ${showLoads ? 'btn-danger' : 'btn-outline'}`}>Loads</button>
                 </div>
 
                 {importSummary && (
-                    <div style={{ marginTop: '15px', padding: '10px', background: 'rgba(30,41,59,0.9)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', fontSize: '0.8rem', pointerEvents: 'auto', backdropFilter: 'blur(10px)', width: '220px' }}>
-                        <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
+                    <div className="stats-card">
+                        <div className="view-toggle-group">
                             <button
                                 onClick={() => {
                                     setShowBlocks(true); setShowFE(false);
                                     setTimeout(fitCameraToObjects, 50);
                                 }}
-                                style={{ padding: '6px 12px', background: showBlocks ? '#2563eb' : '#334155', border: 'none', color: 'white', borderRadius: '4px', cursor: 'pointer', flex: 1, fontSize: '11px' }}
+                                className={`view-toggle-btn ${showBlocks ? 'active' : ''}`}
                             >
                                 Lego & Plot
                             </button>
@@ -342,33 +343,35 @@ export default function ProjectRoot() {
                                     setShowBlocks(false); setShowFE(true);
                                     setTimeout(fitCameraToObjects, 50);
                                 }}
-                                style={{ padding: '6px 12px', background: showFE ? '#2563eb' : '#334155', border: 'none', color: 'white', borderRadius: '4px', cursor: 'pointer', flex: 1, fontSize: '11px' }}
+                                className={`view-toggle-btn ${showFE ? 'active' : ''}`}
                             >
                                 FE Model
                             </button>
                         </div>
 
-                        <div style={{ fontWeight: 'bold', marginBottom: '8px', borderBottom: '1px solid #444', paddingBottom: '4px' }}>Import Statistics</div>
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px' }}>
-                            <span>Grids:</span> <span style={{ textAlign: 'right', color: '#fbbf24' }}>{importSummary.nodes}</span>
-                            <span>Elements:</span> <span style={{ textAlign: 'right', color: '#38bdf8' }}>{importSummary.elements}</span>
-                            <span>Property:</span> <span style={{ textAlign: 'right' }}>{importSummary.properties}</span>
-                            <span>Material:</span> <span style={{ textAlign: 'right' }}>{importSummary.materials}</span>
+                        <div className="stats-header">Import Statistics</div>
+                        <div className="stats-grid">
+                            <span className="stats-label">Grids:</span> <span className="stats-value" style={{ color: '#fbbf24' }}>{importSummary.nodes}</span>
+                            <span className="stats-label">Elements:</span> <span className="stats-value" style={{ color: '#38bdf8' }}>{importSummary.elements}</span>
+                            <span className="stats-label">Property:</span> <span className="stats-value">{importSummary.properties}</span>
+                            <span className="stats-label">Material:</span> <span className="stats-value">{importSummary.materials}</span>
                         </div>
                         {importSummary.warnings.length > 0 && (
-                            <div style={{ marginTop: '8px', color: '#fbbf24', fontSize: '0.7rem' }}>
+                            <div className="stats-warning">
                                 ⚠️ {importSummary.warnings.length} issues found.
                             </div>
                         )}
                     </div>
                 )}
 
-                <div className="palette-menu" style={{ display: 'flex', gap: '5px', marginTop: '15px', pointerEvents: 'auto' }}>
+                <div className="palette-container">
                     {Object.entries(palette).map(([key, color]) => (
-                        <div key={key} onClick={() => changeColor(color)} style={{
-                            width: '20px', height: '20px', borderRadius: '4px', background: `#${color.toString(16).padStart(6, '0')}`,
-                            cursor: 'pointer', border: color === currentColor ? '2px solid white' : '1px solid rgba(255,255,255,0.2)'
-                        }} />
+                        <div
+                            key={key}
+                            onClick={() => changeColor(color)}
+                            className={`color-swatch ${color === currentColor ? 'active' : ''}`}
+                            style={{ background: `#${color.toString(16).padStart(6, '0')}` }}
+                        />
                     ))}
                 </div>
             </div>
