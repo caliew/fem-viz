@@ -7,6 +7,7 @@ export interface FemShaderUniforms {
     uVisMode: { value: number };
     uLightPos: { value: THREE.Vector3 };
     uUseVertexColor: { value: number };
+    [key: string]: THREE.IUniform<any>;
 }
 
 export const FemShader = {
