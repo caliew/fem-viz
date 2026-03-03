@@ -324,6 +324,20 @@ export default function ProjectRoot() {
     };
 
     const menuItems = [
+        {
+            label: 'LEGO & PLOT', onClick: () => {
+                setShowBlocks(true); setShowFE(false);
+                setTimeout(fitCameraToObjects, 50);
+            }
+        },
+        {
+            label: 'FE MODEL', onClick: () => {
+                setShowBlocks(false); setShowFE(true);
+                setTimeout(fitCameraToObjects, 50);
+            }
+        },
+        { isSeparator: true },
+        { label: 'Fit', shortcut: 'F', onClick: fitCameraToObjects },
         { label: 'Lock', shortcut: 'L', onClick: () => setIsLocked(!isLocked) },
         { isSeparator: true },
         { label: 'Wre', shortcut: 'W', onClick: () => setVisMode('wireframe') },
@@ -331,7 +345,6 @@ export default function ProjectRoot() {
         { label: 'Shade', shortcut: 'S', onClick: () => setVisMode('shaded') },
         { label: 'Contour', shortcut: 'C', onClick: () => setVisMode('contour') },
         { isSeparator: true },
-        { label: 'Fit', shortcut: 'F', onClick: fitCameraToObjects },
         { label: 'Add', shortcut: 'A', onClick: addPart },
         { label: 'Draw', shortcut: 'P', onClick: () => setIsDrawing(!isDrawing) },
         { label: 'Del', shortcut: 'D', onClick: deletePart, danger: true },

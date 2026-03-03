@@ -214,7 +214,6 @@ body {
 }
 
 .context-menu-item .shortcut {
-    font-size: 0.7rem;
     opacity: 0.5;
     margin-left: 24px;
     font-family: 'Segoe UI', system-ui, sans-serif;
