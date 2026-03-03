@@ -42,6 +42,7 @@ body {
     letter-spacing: -0.02em;
     background: linear-gradient(135deg, #fff 0%, #aaa 100%);
     -webkit-background-clip: text;
+    background-clip: text;
     -webkit-text-fill-color: transparent;
 }
 
@@ -155,6 +156,74 @@ body {
     outline: 2px solid white;
     outline-offset: 2px;
     box-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
+}
+
+/* Context Menu */
+.context-menu {
+    position: fixed;
+    z-index: 1000;
+    background: rgba(30, 41, 59, 0.7);
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 8px;
+    padding: 4px;
+    min-width: 200px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+    animation: menuAppear 0.15s cubic-bezier(0, 0, 0.2, 1);
+    transform-origin: top left;
+}
+
+@keyframes menuAppear {
+    from {
+        opacity: 0;
+        transform: scale(0.96) translateY(-4px);
+    }
+
+    to {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+    }
+}
+
+.context-menu-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 12px;
+    cursor: pointer;
+    border-radius: 5px;
+    transition: all 0.1s;
+    font-size: 0.85rem;
+    color: rgba(255, 255, 255, 0.9);
+    margin: 1px 0;
+    font-size: 1.15rem;
+}
+
+.context-menu-item:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.context-menu-item.danger:hover {
+    background: rgba(239, 68, 68, 0.15);
+    color: #f87171;
+}
+
+.context-menu-item .label {
+    font-weight: 400;
+}
+
+.context-menu-item .shortcut {
+    font-size: 0.7rem;
+    opacity: 0.5;
+    margin-left: 24px;
+    font-family: 'Segoe UI', system-ui, sans-serif;
+}
+
+.context-menu-separator {
+    height: 1px;
+    background: rgba(255, 255, 255, 0.1);
+    margin: 4px 8px;
 }
 
 /* Statistics Card */

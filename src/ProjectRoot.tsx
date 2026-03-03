@@ -6,6 +6,7 @@ import { Part } from './components/Part';
 import { NastranModelComp } from './components/NastranModelComp';
 import { FloorplanModelComp } from './components/FloorplanModelComp';
 import { DrawingSystem } from './components/DrawingSystem';
+import { ContextMenu } from './components/ContextMenu';
 import { NastranParser } from './NastranParser';
 import { SceneElement, VisMode, NastranData } from './types';
 
@@ -124,6 +125,21 @@ export default function ProjectRoot() {
     const [showFE, setShowFE] = useState(true);
     const [visMode, setVisMode] = useState<VisMode>('shaded');
     const [showBlocks, setShowBlocks] = useState(true);
+    const [menuVisible, setMenuVisible] = useState(false);
+    const [menuPos, setMenuPos] = useState({ x: 0, y: 0 });
+    const mouseStartPos = useRef({ x: 0, y: 0 });
+    const mouseDownTime = useRef(0);
+
+    useEffect(() => {
+        const handleGlobalMouseDown = (e: MouseEvent) => {
+            if (e.button === 2) {
+                mouseStartPos.current = { x: e.clientX, y: e.clientY };
+                mouseDownTime.current = Date.now();
+            }
+        };
+        window.addEventListener('mousedown', handleGlobalMouseDown, { capture: true });
+        return () => window.removeEventListener('mousedown', handleGlobalMouseDown, { capture: true });
+    }, []);
 
     const palette: Record<string, number> = {
         '1': 0xef4444, '2': 0x22c55e, '3': 0x3b82f6,
@@ -278,8 +294,67 @@ export default function ProjectRoot() {
 
     const handleDragEnd = (id: string) => { };
 
+    const handleMouseDown = (e: React.MouseEvent) => {
+        if (e.button === 2) { // Right click
+            mouseStartPos.current = { x: e.clientX, y: e.clientY };
+            mouseDownTime.current = Date.now();
+        }
+    };
+
+    const handleContextMenu = (e: React.MouseEvent) => {
+        e.preventDefault();
+
+        const dist = Math.sqrt(
+            Math.pow(e.clientX - mouseStartPos.current.x, 2) +
+            Math.pow(e.clientY - mouseStartPos.current.y, 2)
+        );
+        const duration = Date.now() - mouseDownTime.current;
+
+        console.log('Context Menu Attempt:', { dist, duration, mouseDownSet: mouseDownTime.current !== 0 });
+
+        // If mouse moved more than 10px OR held for too long (> 350ms), it's likely a pan.
+        // We only return if we actually matched a mousedown.
+        if (mouseDownTime.current !== 0 && (dist > 10 || duration > 350)) {
+            console.log('Context Menu Suppressed (Drag detected)');
+            return;
+        }
+
+        setMenuPos({ x: e.clientX, y: e.clientY });
+        setMenuVisible(true);
+    };
+
+    const menuItems = [
+        { label: 'Lock', shortcut: 'L', onClick: () => setIsLocked(!isLocked) },
+        { isSeparator: true },
+        { label: 'Wre', shortcut: 'W', onClick: () => setVisMode('wireframe') },
+        { label: 'Hidden', shortcut: 'H', onClick: () => setVisMode('hidden') },
+        { label: 'Shade', shortcut: 'S', onClick: () => setVisMode('shaded') },
+        { label: 'Contour', shortcut: 'C', onClick: () => setVisMode('contour') },
+        { isSeparator: true },
+        { label: 'Fit', shortcut: 'F', onClick: fitCameraToObjects },
+        { label: 'Add', shortcut: 'A', onClick: addPart },
+        { label: 'Draw', shortcut: 'P', onClick: () => setIsDrawing(!isDrawing) },
+        { label: 'Del', shortcut: 'D', onClick: deletePart, danger: true },
+        { isSeparator: true },
+        { label: 'BDF Import', onClick: () => document.getElementById('nastran-input')?.click() },
+    ];
+
     return (
-        <div className="canvas-wrapper">
+        <div
+            className="canvas-wrapper"
+            onContextMenu={handleContextMenu}
+        >
+            {menuVisible && (
+                <ContextMenu
+                    x={menuPos.x}
+                    y={menuPos.y}
+                    items={menuItems}
+                    onClose={() => {
+                        console.log('ProjectRoot: Closing ContextMenu');
+                        setMenuVisible(false);
+                    }}
+                />
+            )}
             <Canvas shadows onPointerMissed={() => setSelectedId(null)}>
                 <SceneListener onSceneInit={() => { }} />
                 <PerspectiveCamera makeDefault position={[10, 10, 10]} />
