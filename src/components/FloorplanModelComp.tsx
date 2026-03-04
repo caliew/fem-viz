@@ -1,28 +1,44 @@
-import React, { useMemo, FC } from 'react';
+import React, { useMemo, useRef, useState, FC } from 'react';
 import * as THREE from 'three';
-import { ThreeEvent } from '@react-three/fiber';
+import { useThree, ThreeEvent } from '@react-three/fiber';
 import { FemShader } from '../FemShader';
 import { VisMode } from '../types';
 
 interface FloorplanModelCompProps {
     id: string;
     points?: THREE.Vector3[];
+    position: [number, number, number];
     color: number;
     visMode: VisMode;
     visible?: boolean;
     isSelected: boolean;
     onSelect: () => void;
+    onDrag: (id: string, targetWorldPos: THREE.Vector3) => void;
+    onDragEnd: (id: string) => void;
+    isLocked: boolean;
+    isDrawing: boolean;
 }
 
 export const FloorplanModelComp: FC<FloorplanModelCompProps> = ({
     id,
     points,
+    position,
     color,
     visMode,
     visible = true,
     isSelected,
-    onSelect
+    onSelect,
+    onDrag,
+    onDragEnd,
+    isLocked,
+    isDrawing
 }) => {
+    const meshRef = useRef<THREE.Mesh>(null!);
+    const { raycaster, camera, mouse } = useThree();
+    const dragPlane = useMemo(() => new THREE.Plane(), []);
+    const dragOffset = useMemo(() => new THREE.Vector3(), []);
+    const [isDragging, setIsDragging] = useState(false);
+
     const geometry = useMemo(() => {
         if (!points || points.length < 3) return null;
 
@@ -45,37 +61,87 @@ export const FloorplanModelComp: FC<FloorplanModelCompProps> = ({
         return geo;
     }, [points]);
 
-    const uniforms = useMemo(() => {
-        const u = THREE.UniformsUtils.clone(FemShader.uniforms);
-        u.uColor.value.set(color);
-        u.uUseVertexColor.value = 0.0;
+    const uniforms = useMemo(() => THREE.UniformsUtils.clone(FemShader.uniforms), []);
+
+    useMemo(() => {
+        uniforms.uColor.value.set(color);
+        uniforms.uUseVertexColor.value = 0.0;
 
         let modeVal = 0; // Contour
         if (visMode === 'shaded') modeVal = 1;
         if (visMode === 'hidden') modeVal = 2;
-        u.uVisMode.value = modeVal;
-        u.uHighlight.value = isSelected ? 1.0 : 0.0;
-        return u;
-    }, [color, visMode, isSelected]);
+        if (visMode === 'freeedge') modeVal = 3;
+        uniforms.uVisMode.value = modeVal;
+        uniforms.uHighlight.value = isSelected ? 1.0 : 0.0;
+    }, [color, visMode, isSelected, uniforms]);
 
     if (!geometry || !visible) return null;
 
     const showMesh = visMode !== 'wireframe';
 
     const handlePointerDown = (e: ThreeEvent<PointerEvent>) => {
+        if (!visible || isLocked || isDrawing) return;
         e.stopPropagation();
         onSelect();
+
+        // Disable OrbitControls while dragging
+        const controls = (window as any).__G_CONTROLS;
+        if (controls) controls.enabled = false;
+        (e.target as HTMLElement).setPointerCapture(e.pointerId);
+
+        setIsDragging(true);
+        const meshWorldPos = new THREE.Vector3();
+        meshRef.current.getWorldPosition(meshWorldPos);
+
+        // Floorplan always moves on XZ plane
+        const normal = new THREE.Vector3(0, 1, 0);
+        dragPlane.setFromNormalAndCoplanarPoint(normal, meshWorldPos);
+
+        const intersectPoint = new THREE.Vector3();
+        raycaster.ray.intersectPlane(dragPlane, intersectPoint);
+        dragOffset.copy(intersectPoint).sub(meshWorldPos);
+    };
+
+    const handlePointerMove = (e: ThreeEvent<PointerEvent>) => {
+        if (!isDragging || isLocked) return;
+        e.stopPropagation();
+
+        const intersectPoint = new THREE.Vector3();
+        raycaster.setFromCamera(mouse, camera);
+        if (raycaster.ray.intersectPlane(dragPlane, intersectPoint)) {
+            const targetWorldPos = intersectPoint.sub(dragOffset);
+
+            // Grid Snapping (Floored for floorplan typically)
+            targetWorldPos.x = Math.floor(targetWorldPos.x + 0.5);
+            targetWorldPos.y = position[1]; // Maintain current Y
+            targetWorldPos.z = Math.floor(targetWorldPos.z + 0.5);
+
+            onDrag(id, targetWorldPos);
+        }
+    };
+
+    const handlePointerUp = (e: ThreeEvent<PointerEvent>) => {
+        if (isDragging) {
+            setIsDragging(false);
+            (e.target as HTMLElement).releasePointerCapture(e.pointerId);
+            const controls = (window as any).__G_CONTROLS;
+            if (controls) controls.enabled = true;
+            onDragEnd(id);
+        }
     };
 
     return (
-        <group position={[0, 0.01, 0]}>
+        <group position={position}>
             {showMesh && (
                 <mesh
+                    ref={meshRef}
                     key={`floorplan-mesh-${visMode}`}
                     geometry={geometry}
                     castShadow
                     receiveShadow
                     onPointerDown={handlePointerDown}
+                    onPointerMove={handlePointerMove}
+                    onPointerUp={handlePointerUp}
                     userData={{ isPart: true, partId: id }}
                 >
                     <shaderMaterial
@@ -88,10 +154,15 @@ export const FloorplanModelComp: FC<FloorplanModelCompProps> = ({
                         polygonOffset
                         polygonOffsetFactor={1}
                         polygonOffsetUnits={1}
+                        depthTest={true}
                     />
                 </mesh>
             )}
-            <lineSegments onPointerDown={handlePointerDown}>
+            <lineSegments
+                onPointerDown={handlePointerDown}
+                onPointerMove={handlePointerMove}
+                onPointerUp={handlePointerUp}
+            >
                 <edgesGeometry args={[geometry]} />
                 <lineBasicMaterial color="white" opacity={0.6} transparent />
             </lineSegments>

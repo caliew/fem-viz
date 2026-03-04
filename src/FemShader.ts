@@ -15,7 +15,7 @@ export const FemShader = {
         uShowStress: { value: 1.0 },
         uColor: { value: new THREE.Color(0x2563eb) },
         uHighlight: { value: 0.0 },
-        uVisMode: { value: 0.0 }, // 0: Contour, 1: Shaded, 2: HiddenLine
+        uVisMode: { value: 0.0 }, // 0: Contour, 1: Shaded, 2: Hidden (monochromatic), 3: FreeEdge
         uLightPos: { value: new THREE.Vector3(10, 10, 10) },
         uUseVertexColor: { value: 0.0 } // 0: Use uColor, 1: Use vColor
     } as FemShaderUniforms,
@@ -57,8 +57,8 @@ export const FemShader = {
         }
 
         void main() {
-            if (uVisMode > 1.5) {
-                // Hidden Line Mode
+            if (uVisMode > 2.5) {
+                // Free Edge Mode (Dark Surface)
                 gl_FragColor = vec4(0.0196, 0.0196, 0.0196, 1.0);
                 return;
             }
@@ -73,7 +73,10 @@ export const FemShader = {
             float lighting = diff + ambient;
 
             vec3 baseColor;
-            if (uVisMode > 0.5) {
+            if (uVisMode > 1.5) {
+                // Hidden Mode (Neutral/Monochromatic Shaded)
+                baseColor = vec3(0.9, 0.9, 0.9);
+            } else if (uVisMode > 0.5) {
                 // Shaded Mode
                 baseColor = (uUseVertexColor > 0.5) ? vColor : uColor;
             } else {
@@ -81,7 +84,7 @@ export const FemShader = {
                 baseColor = colormap(vStress);
             }
 
-            vec3 finalColor = baseColor * lighting + vec3(uHighlight * 0.3);
+            vec3 finalColor = baseColor * lighting + vec3(uHighlight * 0.5);
             gl_FragColor = vec4(finalColor, 1.0);
         }
     `

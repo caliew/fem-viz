@@ -141,6 +141,16 @@ export default function ProjectRoot() {
         return () => window.removeEventListener('mousedown', handleGlobalMouseDown, { capture: true });
     }, []);
 
+    // Sync currentColor with selected element
+    useEffect(() => {
+        if (selectedId) {
+            const selectedEl = elements.find(el => el.id === selectedId);
+            if (selectedEl) {
+                setCurrentColor(selectedEl.color);
+            }
+        }
+    }, [selectedId, elements]);
+
     const palette: Record<string, number> = {
         '1': 0xef4444, '2': 0x22c55e, '3': 0x3b82f6,
         '4': 0xeab308, '5': 0xa855f7, '6': 0x06b6d4,
@@ -253,6 +263,7 @@ export default function ProjectRoot() {
             if (key === 'c') setVisMode('contour');
             if (key === 's') setVisMode('shaded');
             if (key === 'h') setVisMode('hidden');
+            if (key === 'e') setVisMode('freeedge');
             if (key === 'w') setVisMode('wireframe');
             if (key === 'b') setShowBlocks(prev => !prev);
 
@@ -345,6 +356,7 @@ export default function ProjectRoot() {
         { label: 'Lock', shortcut: 'L', checked: isLocked, onClick: () => setIsLocked(!isLocked) },
         { isSeparator: true },
         { label: 'Wireframe', shortcut: 'W', checked: visMode === 'wireframe', onClick: () => setVisMode('wireframe') },
+        { label: 'Free Edge', shortcut: 'E', checked: visMode === 'freeedge', onClick: () => setVisMode('freeedge') },
         { label: 'Hidden', shortcut: 'H', checked: visMode === 'hidden', onClick: () => setVisMode('hidden') },
         { label: 'Shade', shortcut: 'S', checked: visMode === 'shaded', onClick: () => setVisMode('shaded') },
         { label: 'Contour', shortcut: 'C', checked: visMode === 'contour', onClick: () => setVisMode('contour') },
@@ -380,7 +392,7 @@ export default function ProjectRoot() {
                 <pointLight position={[10, 10, 10]} castShadow />
                 <Grid infiniteGrid fadeDistance={30} sectionColor="#666" cellColor="#444" sectionSize={1} cellSize={1} />
 
-                {isDrawing && <DrawingSystem onFinish={(points) => {
+                {isDrawing && <DrawingSystem color={currentColor} onFinish={(points) => {
                     const id = Math.random().toString(36).substr(2, 9);
                     setElements(prev => [...prev, { id, type: 'floorplan', points, color: currentColor, position: [0, 0, 0], rotation: [0, 0, 0, 1] }]);
                     setIsDrawing(false);
@@ -391,7 +403,7 @@ export default function ProjectRoot() {
                 {elements.map(el => {
                     if (el.type === 'block') return <Part key={el.id} id={el.id} position={el.position} rotation={el.rotation} color={el.color} visMode={visMode} visible={showBlocks} isSelected={selectedId === el.id} onSelect={() => setSelectedId(el.id)} onDrag={handleDrag} onDragEnd={handleDragEnd} isLocked={isLocked} isDrawing={isDrawing} />;
                     if (el.type === 'nastran' && el.data) return <NastranModelComp key={el.id} data={el.data} color={el.color} visMode={visMode} showGridIDs={showGridIDs} showElemIDs={showElemIDs} showLoads={showLoads} showSPC={showSPC} visible={showFE} />;
-                    if (el.type === 'floorplan' && el.points) return <FloorplanModelComp key={el.id} id={el.id} points={el.points} color={el.color} visMode={visMode} visible={showBlocks} isSelected={selectedId === el.id} onSelect={() => setSelectedId(el.id)} />;
+                    if (el.type === 'floorplan' && el.points) return <FloorplanModelComp key={el.id} id={el.id} points={el.points} position={el.position} color={el.color} visMode={visMode} visible={showBlocks} isSelected={selectedId === el.id} onSelect={() => setSelectedId(el.id)} onDrag={handleDrag} onDragEnd={handleDragEnd} isLocked={isLocked} isDrawing={isDrawing} />;
                     return null;
                 })}
             </Canvas>
@@ -403,7 +415,7 @@ export default function ProjectRoot() {
                     Mode: <span className="status-tag" style={{ color: '#6366f1' }}>{visMode}</span>
                 </div>
                 <div className="keybind-hint">
-                    <b>L</b>: Lock | <b>W</b>: Wire | <b>H</b>: Hidden | <b>S</b>: Shaded | <b>C</b>: Contour | <b>F</b>: Fit
+                    <b>L</b>: Lock | <b>W</b>: Wire | <b>E</b>: FreeEdge | <b>H</b>: Hidden | <b>S</b>: Shaded | <b>C</b>: Contour | <b>F</b>: Fit
                 </div>
 
                 <div className="controls-group">
