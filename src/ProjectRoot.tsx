@@ -122,7 +122,7 @@ export default function ProjectRoot() {
     const [showLoads, setShowLoads] = useState(false);
     const [showSPC, setShowSPC] = useState(false);
     const [importSummary, setImportSummary] = useState<NastranData['summary'] | null>(null);
-    const [showFE, setShowFE] = useState(true);
+    const [showFE, setShowFE] = useState(false);
     const [visMode, setVisMode] = useState<VisMode>('shaded');
     const [showBlocks, setShowBlocks] = useState(true);
     const [menuVisible, setMenuVisible] = useState(false);
@@ -325,28 +325,32 @@ export default function ProjectRoot() {
 
     const menuItems = [
         {
-            label: 'LEGO & PLOT', onClick: () => {
+            label: 'LEGO & PLOT',
+            checked: showBlocks && !showFE,
+            onClick: () => {
                 setShowBlocks(true); setShowFE(false);
                 setTimeout(fitCameraToObjects, 50);
             }
         },
         {
-            label: 'FE MODEL', onClick: () => {
+            label: 'FE MODEL',
+            checked: !showBlocks && showFE,
+            onClick: () => {
                 setShowBlocks(false); setShowFE(true);
                 setTimeout(fitCameraToObjects, 50);
             }
         },
         { isSeparator: true },
         { label: 'Fit', shortcut: 'F', onClick: fitCameraToObjects },
-        { label: 'Lock', shortcut: 'L', onClick: () => setIsLocked(!isLocked) },
+        { label: 'Lock', shortcut: 'L', checked: isLocked, onClick: () => setIsLocked(!isLocked) },
         { isSeparator: true },
-        { label: 'Wre', shortcut: 'W', onClick: () => setVisMode('wireframe') },
-        { label: 'Hidden', shortcut: 'H', onClick: () => setVisMode('hidden') },
-        { label: 'Shade', shortcut: 'S', onClick: () => setVisMode('shaded') },
-        { label: 'Contour', shortcut: 'C', onClick: () => setVisMode('contour') },
+        { label: 'Wireframe', shortcut: 'W', checked: visMode === 'wireframe', onClick: () => setVisMode('wireframe') },
+        { label: 'Hidden', shortcut: 'H', checked: visMode === 'hidden', onClick: () => setVisMode('hidden') },
+        { label: 'Shade', shortcut: 'S', checked: visMode === 'shaded', onClick: () => setVisMode('shaded') },
+        { label: 'Contour', shortcut: 'C', checked: visMode === 'contour', onClick: () => setVisMode('contour') },
         { isSeparator: true },
         { label: 'Add', shortcut: 'A', onClick: addPart },
-        { label: 'Draw', shortcut: 'P', onClick: () => setIsDrawing(!isDrawing) },
+        { label: 'Draw', shortcut: 'P', checked: isDrawing, onClick: () => setIsDrawing(!isDrawing) },
         { label: 'Del', shortcut: 'D', onClick: deletePart, danger: true },
         { isSeparator: true },
         { label: 'BDF Import', onClick: () => document.getElementById('nastran-input')?.click() },

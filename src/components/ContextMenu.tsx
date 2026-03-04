@@ -6,6 +6,7 @@ export interface ContextMenuItem {
     onClick?: () => void;
     danger?: boolean;
     isSeparator?: boolean;
+    checked?: boolean;
 }
 
 interface ContextMenuProps {
@@ -73,13 +74,16 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({ x, y, items, onClose }
                 return (
                     <div
                         key={index}
-                        className={`context-menu-item ${item.danger ? 'danger' : ''}`}
+                        className={`context-menu-item ${item.danger ? 'danger' : ''} ${item.checked ? 'checked' : ''}`}
                         onClick={() => {
                             if (item.onClick) item.onClick();
                             onClose();
                         }}
                     >
-                        <span className="label">{item.label}</span>
+                        <div className="item-content">
+                            <span className="check">{item.checked ? '✓' : ''}</span>
+                            <span className="label">{item.label}</span>
+                        </div>
                         {item.shortcut && <span className="shortcut">{item.shortcut}</span>}
                     </div>
                 );

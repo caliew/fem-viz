@@ -200,6 +200,21 @@ body {
     font-size: 1.15rem;
 }
 
+.context-menu-item .item-content {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.context-menu-item .check {
+    width: 16px;
+    display: flex;
+    justify-content: center;
+    font-size: 0.9rem;
+    color: #22c55e;
+    font-weight: bold;
+}
+
 .context-menu-item:hover {
     background: rgba(255, 255, 255, 0.1);
 }
