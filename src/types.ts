@@ -60,7 +60,7 @@ export interface NastranData {
     };
 }
 
-export type VisMode = 'wireframe' | 'hidden' | 'shaded' | 'contour';
+export type VisMode = 'wireframe' | 'hidden' | 'shaded' | 'contour' | 'freeedge';
 
 export interface SceneElement {
     id: string;

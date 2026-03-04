@@ -177,6 +177,7 @@ export const NastranModelComp: FC<NastranModelCompProps> = ({
         let modeVal = 0; // Contour
         if (visMode === 'shaded') modeVal = 1;
         if (visMode === 'hidden') modeVal = 2;
+        if (visMode === 'freeedge') modeVal = 3;
         u.uVisMode.value = modeVal;
         return u;
     }, [color, visMode]);
@@ -231,7 +232,7 @@ export const NastranModelComp: FC<NastranModelCompProps> = ({
                     opacity={visMode === 'wireframe' ? 0.6 : 0.05}
                     depthTest={true}
                     transparent
-                    visible={visMode === 'wireframe' || visMode !== 'hidden'}
+                    visible={visMode === 'wireframe' || (visMode !== 'hidden' && visMode !== 'freeedge')}
                 />
             </lineSegments>
 

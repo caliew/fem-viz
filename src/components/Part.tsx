@@ -60,6 +60,7 @@ export const Part: FC<PartProps> = ({
         let modeVal = 0; // Contour/Stress
         if (visMode === 'shaded') modeVal = 1;
         if (visMode === 'hidden') modeVal = 2;
+        if (visMode === 'freeedge') modeVal = 3;
         uniforms.uVisMode.value = modeVal;
 
         uniforms.uHighlight.value = isSelected ? 1.0 : 0.0;
@@ -147,11 +148,16 @@ export const Part: FC<PartProps> = ({
                         args={[FemShader]}
                         uniforms={uniforms}
                         transparent
+                        depthTest={true}
                     />
                 </mesh>
             )}
 
-            <lineSegments>
+            <lineSegments
+                onPointerDown={handlePointerDown}
+                onPointerMove={handlePointerMove}
+                onPointerUp={handlePointerUp}
+            >
                 <edgesGeometry args={[geometry]} />
                 <lineBasicMaterial color="white" opacity={0.5} transparent />
             </lineSegments>

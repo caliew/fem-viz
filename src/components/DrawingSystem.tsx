@@ -5,9 +5,11 @@ import * as THREE from 'three';
 interface DrawingSystemProps {
     onFinish: (points: THREE.Vector3[]) => void;
     onCancel: () => void;
+    color: number;
 }
 
-export const DrawingSystem: FC<DrawingSystemProps> = ({ onFinish, onCancel }) => {
+export const DrawingSystem: FC<DrawingSystemProps> = ({ onFinish, onCancel, color }) => {
+    const hexColor = useMemo(() => `#${new THREE.Color(color).getHexString()}`, [color]);
     const { raycaster, mouse, camera } = useThree();
     const [points, setPoints] = useState<THREE.Vector3[]>([]);
     const [previewPoint, setPreviewPoint] = useState<THREE.Vector3 | null>(null);
@@ -90,17 +92,17 @@ export const DrawingSystem: FC<DrawingSystemProps> = ({ onFinish, onCancel }) =>
             </mesh>
 
             <primitive
-                object={new THREE.Line(lineGeometry, new THREE.LineBasicMaterial({ color: "#3b82f6", linewidth: 3, depthTest: false, transparent: true }))}
+                object={new THREE.Line(lineGeometry, new THREE.LineBasicMaterial({ color: hexColor, linewidth: 3, depthTest: false, transparent: true }))}
             />
 
             <primitive
-                object={new THREE.Line(previewGeometry, new THREE.LineDashedMaterial({ color: "#3b82f6", dashSize: 0.2, gapSize: 0.1, opacity: 0.8, transparent: true, depthTest: false }))}
+                object={new THREE.Line(previewGeometry, new THREE.LineDashedMaterial({ color: hexColor, dashSize: 0.2, gapSize: 0.1, opacity: 0.8, transparent: true, depthTest: false }))}
             />
 
             {points.map((p, i) => (
                 <mesh key={i} position={p}>
                     <sphereGeometry args={[i === 0 ? 0.15 : 0.1]} />
-                    <meshBasicMaterial color={i === 0 ? '#ef4444' : '#3b82f6'} depthTest={false} transparent />
+                    <meshBasicMaterial color={i === 0 ? '#ef4444' : hexColor} depthTest={false} transparent />
                 </mesh>
             ))}
         </group>

@@ -6,6 +6,7 @@ import { Part } from './components/Part';
 import { NastranModelComp } from './components/NastranModelComp';
 import { FloorplanModelComp } from './components/FloorplanModelComp';
 import { DrawingSystem } from './components/DrawingSystem';
+import { ContextMenu } from './components/ContextMenu';
 import { NastranParser } from './NastranParser';
 import { SceneElement, VisMode, NastranData } from './types';
 
@@ -121,9 +122,34 @@ export default function ProjectRoot() {
     const [showLoads, setShowLoads] = useState(false);
     const [showSPC, setShowSPC] = useState(false);
     const [importSummary, setImportSummary] = useState<NastranData['summary'] | null>(null);
-    const [showFE, setShowFE] = useState(true);
+    const [showFE, setShowFE] = useState(false);
     const [visMode, setVisMode] = useState<VisMode>('shaded');
     const [showBlocks, setShowBlocks] = useState(true);
+    const [menuVisible, setMenuVisible] = useState(false);
+    const [menuPos, setMenuPos] = useState({ x: 0, y: 0 });
+    const mouseStartPos = useRef({ x: 0, y: 0 });
+    const mouseDownTime = useRef(0);
+
+    useEffect(() => {
+        const handleGlobalMouseDown = (e: MouseEvent) => {
+            if (e.button === 2) {
+                mouseStartPos.current = { x: e.clientX, y: e.clientY };
+                mouseDownTime.current = Date.now();
+            }
+        };
+        window.addEventListener('mousedown', handleGlobalMouseDown, { capture: true });
+        return () => window.removeEventListener('mousedown', handleGlobalMouseDown, { capture: true });
+    }, []);
+
+    // Sync currentColor with selected element
+    useEffect(() => {
+        if (selectedId) {
+            const selectedEl = elements.find(el => el.id === selectedId);
+            if (selectedEl) {
+                setCurrentColor(selectedEl.color);
+            }
+        }
+    }, [selectedId, elements]);
 
     const palette: Record<string, number> = {
         '1': 0xef4444, '2': 0x22c55e, '3': 0x3b82f6,
@@ -237,6 +263,7 @@ export default function ProjectRoot() {
             if (key === 'c') setVisMode('contour');
             if (key === 's') setVisMode('shaded');
             if (key === 'h') setVisMode('hidden');
+            if (key === 'e') setVisMode('freeedge');
             if (key === 'w') setVisMode('wireframe');
             if (key === 'b') setShowBlocks(prev => !prev);
 
@@ -278,8 +305,85 @@ export default function ProjectRoot() {
 
     const handleDragEnd = (id: string) => { };
 
+    const handleMouseDown = (e: React.MouseEvent) => {
+        if (e.button === 2) { // Right click
+            mouseStartPos.current = { x: e.clientX, y: e.clientY };
+            mouseDownTime.current = Date.now();
+        }
+    };
+
+    const handleContextMenu = (e: React.MouseEvent) => {
+        e.preventDefault();
+
+        const dist = Math.sqrt(
+            Math.pow(e.clientX - mouseStartPos.current.x, 2) +
+            Math.pow(e.clientY - mouseStartPos.current.y, 2)
+        );
+        const duration = Date.now() - mouseDownTime.current;
+
+        console.log('Context Menu Attempt:', { dist, duration, mouseDownSet: mouseDownTime.current !== 0 });
+
+        // If mouse moved more than 10px OR held for too long (> 350ms), it's likely a pan.
+        // We only return if we actually matched a mousedown.
+        if (mouseDownTime.current !== 0 && (dist > 10 || duration > 350)) {
+            console.log('Context Menu Suppressed (Drag detected)');
+            return;
+        }
+
+        setMenuPos({ x: e.clientX, y: e.clientY });
+        setMenuVisible(true);
+    };
+
+    const menuItems = [
+        {
+            label: 'LEGO & PLOT',
+            checked: showBlocks && !showFE,
+            onClick: () => {
+                setShowBlocks(true); setShowFE(false);
+                setTimeout(fitCameraToObjects, 50);
+            }
+        },
+        {
+            label: 'FE MODEL',
+            checked: !showBlocks && showFE,
+            onClick: () => {
+                setShowBlocks(false); setShowFE(true);
+                setTimeout(fitCameraToObjects, 50);
+            }
+        },
+        { isSeparator: true },
+        { label: 'Fit', shortcut: 'F', onClick: fitCameraToObjects },
+        { label: 'Lock', shortcut: 'L', checked: isLocked, onClick: () => setIsLocked(!isLocked) },
+        { isSeparator: true },
+        { label: 'Wireframe', shortcut: 'W', checked: visMode === 'wireframe', onClick: () => setVisMode('wireframe') },
+        { label: 'Free Edge', shortcut: 'E', checked: visMode === 'freeedge', onClick: () => setVisMode('freeedge') },
+        { label: 'Hidden', shortcut: 'H', checked: visMode === 'hidden', onClick: () => setVisMode('hidden') },
+        { label: 'Shade', shortcut: 'S', checked: visMode === 'shaded', onClick: () => setVisMode('shaded') },
+        { label: 'Contour', shortcut: 'C', checked: visMode === 'contour', onClick: () => setVisMode('contour') },
+        { isSeparator: true },
+        { label: 'Add', shortcut: 'A', onClick: addPart },
+        { label: 'Draw', shortcut: 'P', checked: isDrawing, onClick: () => setIsDrawing(!isDrawing) },
+        { label: 'Del', shortcut: 'D', onClick: deletePart, danger: true },
+        { isSeparator: true },
+        { label: 'BDF Import', onClick: () => document.getElementById('nastran-input')?.click() },
+    ];
+
     return (
-        <div className="canvas-wrapper">
+        <div
+            className="canvas-wrapper"
+            onContextMenu={handleContextMenu}
+        >
+            {menuVisible && (
+                <ContextMenu
+                    x={menuPos.x}
+                    y={menuPos.y}
+                    items={menuItems}
+                    onClose={() => {
+                        console.log('ProjectRoot: Closing ContextMenu');
+                        setMenuVisible(false);
+                    }}
+                />
+            )}
             <Canvas shadows onPointerMissed={() => setSelectedId(null)}>
                 <SceneListener onSceneInit={() => { }} />
                 <PerspectiveCamera makeDefault position={[10, 10, 10]} />
@@ -288,7 +392,7 @@ export default function ProjectRoot() {
                 <pointLight position={[10, 10, 10]} castShadow />
                 <Grid infiniteGrid fadeDistance={30} sectionColor="#666" cellColor="#444" sectionSize={1} cellSize={1} />
 
-                {isDrawing && <DrawingSystem onFinish={(points) => {
+                {isDrawing && <DrawingSystem color={currentColor} onFinish={(points) => {
                     const id = Math.random().toString(36).substr(2, 9);
                     setElements(prev => [...prev, { id, type: 'floorplan', points, color: currentColor, position: [0, 0, 0], rotation: [0, 0, 0, 1] }]);
                     setIsDrawing(false);
@@ -299,7 +403,7 @@ export default function ProjectRoot() {
                 {elements.map(el => {
                     if (el.type === 'block') return <Part key={el.id} id={el.id} position={el.position} rotation={el.rotation} color={el.color} visMode={visMode} visible={showBlocks} isSelected={selectedId === el.id} onSelect={() => setSelectedId(el.id)} onDrag={handleDrag} onDragEnd={handleDragEnd} isLocked={isLocked} isDrawing={isDrawing} />;
                     if (el.type === 'nastran' && el.data) return <NastranModelComp key={el.id} data={el.data} color={el.color} visMode={visMode} showGridIDs={showGridIDs} showElemIDs={showElemIDs} showLoads={showLoads} showSPC={showSPC} visible={showFE} />;
-                    if (el.type === 'floorplan' && el.points) return <FloorplanModelComp key={el.id} id={el.id} points={el.points} color={el.color} visMode={visMode} visible={showBlocks} isSelected={selectedId === el.id} onSelect={() => setSelectedId(el.id)} />;
+                    if (el.type === 'floorplan' && el.points) return <FloorplanModelComp key={el.id} id={el.id} points={el.points} position={el.position} color={el.color} visMode={visMode} visible={showBlocks} isSelected={selectedId === el.id} onSelect={() => setSelectedId(el.id)} onDrag={handleDrag} onDragEnd={handleDragEnd} isLocked={isLocked} isDrawing={isDrawing} />;
                     return null;
                 })}
             </Canvas>
@@ -311,7 +415,7 @@ export default function ProjectRoot() {
                     Mode: <span className="status-tag" style={{ color: '#6366f1' }}>{visMode}</span>
                 </div>
                 <div className="keybind-hint">
-                    <b>L</b>: Lock | <b>W</b>: Wire | <b>H</b>: Hidden | <b>S</b>: Shaded | <b>C</b>: Contour | <b>F</b>: Fit
+                    <b>L</b>: Lock | <b>W</b>: Wire | <b>E</b>: FreeEdge | <b>H</b>: Hidden | <b>S</b>: Shaded | <b>C</b>: Contour | <b>F</b>: Fit
                 </div>
 
                 <div className="controls-group">
