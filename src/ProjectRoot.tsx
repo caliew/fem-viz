@@ -115,6 +115,8 @@ export default function ProjectRoot() {
     const [selectedId, setSelectedId] = useState<string | null>(null);
     const [isLocked, setIsLocked] = useState(false);
     const [isDrawing, setIsDrawing] = useState(false);
+    const [isJoining, setIsJoining] = useState(false);
+    const [joinSelection, setJoinSelection] = useState<{ partId: string, socketIndex: number } | null>(null);
     const [currentColor, setCurrentColor] = useState(0xef4444);
 
     const [showGridIDs, setShowGridIDs] = useState(false);
@@ -258,7 +260,17 @@ export default function ProjectRoot() {
             if (key === 'a') addPart();
             if (key === 'd' || key === 'delete' || key === 'backspace') deletePart();
             if (key === 'p') setIsDrawing(prev => !prev);
+            if (key === 'j') {
+                setIsJoining(prev => !prev);
+                setJoinSelection(null);
+            }
             if (key === 'r') (window as any).__G_ROTATE_MODE = !(window as any).__G_ROTATE_MODE;
+            if (key === 'escape') {
+                setIsDrawing(false);
+                setIsJoining(false);
+                setJoinSelection(null);
+                setMenuVisible(false);
+            }
 
             if (key === 'c') setVisMode('contour');
             if (key === 's') setVisMode('shaded');
@@ -304,6 +316,110 @@ export default function ProjectRoot() {
     };
 
     const handleDragEnd = (id: string) => { };
+
+    const [joinError, setJoinError] = useState<string | null>(null);
+
+    const performJoin = useCallback((fixed: { partId: string, socketIndex: number }, moving: { partId: string, socketIndex: number }) => {
+        const scene = (window as any).__G_SCENE as THREE.Scene;
+        if (!scene) return;
+
+        setJoinError(null);
+        console.log('Perform Join:', { fixed, moving });
+
+        // Find root groups by searching all objects in the scene
+        let fixedGroup: THREE.Object3D | undefined;
+        let movingGroup: THREE.Object3D | undefined;
+
+        scene.traverse(obj => {
+            if (obj.userData?.isPart) {
+                if (obj.userData.partId === fixed.partId) fixedGroup = obj;
+                if (obj.userData.partId === moving.partId) movingGroup = obj;
+            }
+        });
+
+        if (!fixedGroup || !movingGroup) {
+            setJoinError('Units not found in scene');
+            return;
+        }
+
+        // Find precise socket objects within their groups
+        let fixedSocket: THREE.Object3D | undefined;
+        let movingSocket: THREE.Object3D | undefined;
+
+        fixedGroup.traverse(obj => {
+            if (obj.userData?.isSocket && obj.userData.socketIndex === fixed.socketIndex) fixedSocket = obj;
+        });
+        movingGroup.traverse(obj => {
+            if (obj.userData?.isSocket && obj.userData.socketIndex === moving.socketIndex) movingSocket = obj;
+        });
+
+        if (!fixedSocket || !movingSocket) {
+            setJoinError('Sockets not found on objects');
+            return;
+        }
+
+        const fs = fixedSocket;
+        const ms = movingSocket;
+
+        setElements(prev => {
+            const movingEl = prev.find(e => e.id === moving.partId);
+            const fixedEl = prev.find(e => e.id === fixed.partId);
+            if (!movingEl || !fixedEl) return prev;
+
+            // 1. Calculate the rotation required to align ms normal to -fs normal
+            const mSocketWorldQuat = new THREE.Quaternion();
+            ms.getWorldQuaternion(mSocketWorldQuat);
+            const mNormal = new THREE.Vector3(0, 0, 1).applyQuaternion(mSocketWorldQuat);
+
+            const fSocketWorldQuat = new THREE.Quaternion();
+            fs.getWorldQuaternion(fSocketWorldQuat);
+            const fNormal = new THREE.Vector3(0, 0, 1).applyQuaternion(fSocketWorldQuat);
+            const desiredNormal = fNormal.clone().negate();
+
+            // Quat that rotates mNormal to desiredNormal
+            const alignQuat = new THREE.Quaternion().setFromUnitVectors(mNormal, desiredNormal);
+
+            // Apply it to moving object's current rotation
+            const currentQuat = new THREE.Quaternion().fromArray(movingEl.rotation || [0, 0, 0, 1]);
+            const nextQuat = alignQuat.clone().multiply(currentQuat);
+
+            // 2. Calculate the position so that the rotated moving socket matches the fixed socket
+            // Socket position relative to part origin
+            const mSocketLocalPos = ms.position.clone();
+            const fSocketWorldPos = new THREE.Vector3();
+            fs.getWorldPosition(fSocketWorldPos);
+
+            // After rotation 'nextQuat', the relative world offset is: nextQuat * mSocketLocalPos
+            const rotatedOffset = mSocketLocalPos.clone().applyQuaternion(nextQuat);
+
+            // New part position = fixed socket world position - rotated offset
+            const nextPosVec = fSocketWorldPos.clone().sub(rotatedOffset);
+            const nextPos: [number, number, number] = [nextPosVec.x, nextPosVec.y, nextPosVec.z];
+
+            console.log('Join SUCCESS:', { nextPos, nextQuat: nextQuat.toArray() });
+
+            return prev.map(el => {
+                if (el.id === moving.partId) {
+                    return { ...el, position: nextPos, rotation: nextQuat.toArray() as [number, number, number, number] };
+                }
+                return el;
+            });
+        });
+    }, []);
+
+    const handleSocketClick = useCallback((partId: string, socketIndex: number) => {
+        if (!joinSelection) {
+            setJoinSelection({ partId, socketIndex });
+        } else {
+            if (joinSelection.partId === partId) {
+                setJoinSelection(null);
+                return;
+            }
+            performJoin(joinSelection, { partId, socketIndex });
+            setJoinSelection(null);
+            setIsJoining(false);
+        }
+    }, [joinSelection, performJoin]);
 
     const handleMouseDown = (e: React.MouseEvent) => {
         if (e.button === 2) { // Right click
@@ -363,6 +479,7 @@ export default function ProjectRoot() {
         { isSeparator: true },
         { label: 'Add', shortcut: 'A', onClick: addPart },
         { label: 'Draw', shortcut: 'P', checked: isDrawing, onClick: () => setIsDrawing(!isDrawing) },
+        { label: 'Join', shortcut: 'J', checked: isJoining, onClick: () => setIsJoining(!isJoining) },
         { label: 'Del', shortcut: 'D', onClick: deletePart, danger: true },
         { isSeparator: true },
         { label: 'BDF Import', onClick: () => document.getElementById('nastran-input')?.click() },
@@ -401,7 +518,7 @@ export default function ProjectRoot() {
                 }} onCancel={() => setIsDrawing(false)} />}
 
                 {elements.map(el => {
-                    if (el.type === 'block') return <Part key={el.id} id={el.id} position={el.position} rotation={el.rotation} color={el.color} visMode={visMode} visible={showBlocks} isSelected={selectedId === el.id} onSelect={() => setSelectedId(el.id)} onDrag={handleDrag} onDragEnd={handleDragEnd} isLocked={isLocked} isDrawing={isDrawing} />;
+                    if (el.type === 'block') return <Part key={el.id} id={el.id} position={el.position} rotation={el.rotation} color={el.color} visMode={visMode} visible={showBlocks} isSelected={selectedId === el.id} onSelect={() => setSelectedId(el.id)} onDrag={handleDrag} onDragEnd={handleDragEnd} isLocked={isLocked} isDrawing={isDrawing} isJoining={isJoining} onSocketClick={handleSocketClick} selectionInfo={joinSelection} />;
                     if (el.type === 'nastran' && el.data) return <NastranModelComp key={el.id} data={el.data} color={el.color} visMode={visMode} showGridIDs={showGridIDs} showElemIDs={showElemIDs} showLoads={showLoads} showSPC={showSPC} visible={showFE} />;
                     if (el.type === 'floorplan' && el.points) return <FloorplanModelComp key={el.id} id={el.id} points={el.points} position={el.position} color={el.color} visMode={visMode} visible={showBlocks} isSelected={selectedId === el.id} onSelect={() => setSelectedId(el.id)} onDrag={handleDrag} onDragEnd={handleDragEnd} isLocked={isLocked} isDrawing={isDrawing} />;
                     return null;
@@ -413,15 +530,24 @@ export default function ProjectRoot() {
                 <div className="status-bar">
                     Status: <span className="status-tag" style={{ color: isLocked ? '#ef4444' : '#22c55e' }}>{isLocked ? 'LOCKED' : 'UNLOCKED'}</span> |
                     Mode: <span className="status-tag" style={{ color: '#6366f1' }}>{visMode}</span>
+                    {isJoining && (
+                        <> | <span className="status-tag" style={{ color: '#f59e0b' }}>JOINING: {joinSelection ? 'Select Moving Face' : 'Select Fixed Face'}</span></>
+                    )}
+                    {joinError && (
+                        <> | <span className="status-tag" style={{ color: '#ef4444' }}>ERROR: {joinError}</span></>
+                    )}
                 </div>
                 <div className="keybind-hint">
-                    <b>L</b>: Lock | <b>W</b>: Wire | <b>E</b>: FreeEdge | <b>H</b>: Hidden | <b>S</b>: Shaded | <b>C</b>: Contour | <b>F</b>: Fit
+                    <b>L</b>: Lock | <b>W</b>: Wire | <b>E</b>: FreeEdge | <b>H</b>: Hidden | <b>S</b>: Shaded | <b>C</b>: Contour | <b>F</b>: Fit | <b>J</b>: Join
                 </div>
 
                 <div className="controls-group">
                     <button onClick={addPart} className="btn btn-primary">Add (A)</button>
                     <button onClick={() => setIsDrawing(!isDrawing)} className={`btn ${isDrawing ? 'btn-danger' : 'btn-secondary'}`}>
                         {isDrawing ? 'Cancel' : 'Draw (P)'}
+                    </button>
+                    <button onClick={() => { setIsJoining(!isJoining); setJoinSelection(null); }} className={`btn ${isJoining ? 'btn-danger' : 'btn-accent'}`}>
+                        {isJoining ? 'Cancel' : 'Join (J)'}
                     </button>
                     <button onClick={deletePart} className="btn btn-danger">Del</button>
                     <button onClick={() => document.getElementById('nastran-input')?.click()} className="btn btn-accent">BDF</button>

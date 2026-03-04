@@ -75,6 +75,18 @@ export const DrawingSystem: FC<DrawingSystemProps> = ({ onFinish, onCancel, colo
         return new THREE.BufferGeometry().setFromPoints([points[points.length - 1], previewPoint]);
     }, [points, previewPoint]);
 
+    const lineObj = useMemo(() => {
+        const mat = new THREE.LineBasicMaterial({ color: hexColor, linewidth: 3, depthTest: false, transparent: true });
+        return new THREE.Line(lineGeometry, mat);
+    }, [lineGeometry, hexColor]);
+
+    const previewLineObj = useMemo(() => {
+        const mat = new THREE.LineDashedMaterial({ color: hexColor, dashSize: 0.2, gapSize: 0.1, opacity: 0.8, transparent: true, depthTest: false });
+        const line = new THREE.Line(previewGeometry, mat);
+        line.computeLineDistances();
+        return line;
+    }, [previewGeometry, hexColor]);
+
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
             if (e.key === 'Enter' && points.length >= 3) onFinish(points);
@@ -91,13 +103,8 @@ export const DrawingSystem: FC<DrawingSystemProps> = ({ onFinish, onCancel, colo
                 <meshBasicMaterial transparent opacity={0} />
             </mesh>
 
-            <primitive
-                object={new THREE.Line(lineGeometry, new THREE.LineBasicMaterial({ color: hexColor, linewidth: 3, depthTest: false, transparent: true }))}
-            />
-
-            <primitive
-                object={new THREE.Line(previewGeometry, new THREE.LineDashedMaterial({ color: hexColor, dashSize: 0.2, gapSize: 0.1, opacity: 0.8, transparent: true, depthTest: false }))}
-            />
+            <primitive object={lineObj} />
+            <primitive object={previewLineObj} />
 
             {points.map((p, i) => (
                 <mesh key={i} position={p}>

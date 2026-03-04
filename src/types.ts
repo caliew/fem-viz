@@ -70,4 +70,5 @@ export interface SceneElement {
     color: number;
     data?: NastranData;
     points?: THREE.Vector3[];
+    groupId?: string;
 }

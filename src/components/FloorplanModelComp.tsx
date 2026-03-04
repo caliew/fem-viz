@@ -90,6 +90,7 @@ export const FloorplanModelComp: FC<FloorplanModelCompProps> = ({
         (e.target as HTMLElement).setPointerCapture(e.pointerId);
 
         setIsDragging(true);
+        if (!meshRef.current) return;
         const meshWorldPos = new THREE.Vector3();
         meshRef.current.getWorldPosition(meshWorldPos);
 
@@ -131,7 +132,7 @@ export const FloorplanModelComp: FC<FloorplanModelCompProps> = ({
     };
 
     return (
-        <group position={position}>
+        <group position={position} userData={{ isPart: true, partId: id }}>
             {showMesh && (
                 <mesh
                     ref={meshRef}
@@ -142,7 +143,6 @@ export const FloorplanModelComp: FC<FloorplanModelCompProps> = ({
                     onPointerDown={handlePointerDown}
                     onPointerMove={handlePointerMove}
                     onPointerUp={handlePointerUp}
-                    userData={{ isPart: true, partId: id }}
                 >
                     <shaderMaterial
                         attach="material"
