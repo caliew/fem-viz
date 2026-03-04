@@ -245,22 +245,41 @@ export default function ProjectRoot() {
                 const delta = [trOffset.x, trOffset.y, trOffset.z];
                 const finalGroupId = targetEl.groupId || draggedEl.groupId || Math.random().toString(36).substring(2, 11);
 
+                const mOldPos = new THREE.Vector3().fromArray(draggedEl.position);
+                const mOldQuat = new THREE.Quaternion().fromArray(draggedEl.rotation || [0, 0, 0, 1]);
+
                 return prev.map(el => {
-                    if (el.id === draggedId) {
+                    const isPartOrMember = el.id === draggedId || (draggedEl.groupId && el.groupId === draggedEl.groupId);
+
+                    if (isPartOrMember) {
+                        const targetPos = new THREE.Vector3().fromArray(draggedEl.position).add(trOffset);
+
+                        if (el.id === draggedId) {
+                            return {
+                                ...el,
+                                position: [targetPos.x, targetPos.y, targetPos.z],
+                                rotation: nextQuat.toArray() as [number, number, number, number],
+                                groupId: finalGroupId
+                            };
+                        }
+
+                        // For group members: match rotation and relative position
+                        const elPos = new THREE.Vector3().fromArray(el.position);
+                        const relativePos = elPos.clone().sub(mOldPos).applyQuaternion(mOldQuat.clone().invert());
+                        const newRelativePos = relativePos.applyQuaternion(nextQuat);
+                        const newElPos = targetPos.clone().add(newRelativePos);
+
+                        const elQuat = new THREE.Quaternion().fromArray(el.rotation || [0, 0, 0, 1]);
+                        const newElQuat = alignQuat.clone().multiply(elQuat);
+
                         return {
                             ...el,
-                            position: [el.position[0] + delta[0], el.position[1] + delta[1], el.position[2] + delta[2]],
-                            rotation: nextQuat.toArray() as [number, number, number, number],
+                            position: [newElPos.x, newElPos.y, newElPos.z],
+                            rotation: newElQuat.toArray() as [number, number, number, number],
                             groupId: finalGroupId
                         };
                     }
-                    if (draggedEl.groupId && el.groupId === draggedEl.groupId) {
-                        return {
-                            ...el,
-                            position: [el.position[0] + delta[0], el.position[1] + delta[1], el.position[2] + delta[2]],
-                            groupId: finalGroupId
-                        };
-                    }
+
                     if (el.id === bestSnap.targetId) {
                         return { ...el, groupId: finalGroupId };
                     }
@@ -459,7 +478,7 @@ export default function ProjectRoot() {
 
             console.log('Join SUCCESS:', { nextPos, nextQuat: nextQuat.toArray() });
 
-            // 3. Determine Group Logic
+            // 3. Determine Group Logic & Transform Assembly
             let finalGroupId = fixedEl.groupId || movingEl.groupId;
             if (!finalGroupId) {
                 finalGroupId = Math.random().toString(36).substr(2, 9);
@@ -467,15 +486,44 @@ export default function ProjectRoot() {
 
             const movingElGroupId = movingEl.groupId;
 
+            // Calculate assembly-wide transformation
+            // We need to move every element 'el' in the moving group such that its 
+            // relative position to 'movingEl' is maintained after 'movingEl' 
+            // is moved to 'nextPos' and rotated to 'nextQuat'.
+            const mOldPos = new THREE.Vector3().fromArray(movingEl.position);
+            const mOldQuat = new THREE.Quaternion().fromArray(movingEl.rotation || [0, 0, 0, 1]);
+
             return prev.map(el => {
-                // Moving the directly joined part
-                if (el.id === moving.partId) {
-                    return { ...el, position: nextPos, rotation: nextQuat.toArray() as [number, number, number, number], groupId: finalGroupId };
+                const isPartOrMember = el.id === moving.partId || (movingElGroupId && el.groupId === movingElGroupId);
+
+                if (isPartOrMember) {
+                    if (el.id === moving.partId) {
+                        return { ...el, position: nextPos, rotation: nextQuat.toArray() as [number, number, number, number], groupId: finalGroupId };
+                    }
+
+                    // For other members of the same group:
+                    // 1. Get relative pos in local space of movingEl
+                    const elPos = new THREE.Vector3().fromArray(el.position);
+                    const relativePos = elPos.clone().sub(mOldPos).applyQuaternion(mOldQuat.clone().invert());
+
+                    // 2. Rotate relative pos by the new orientation
+                    const newRelativePos = relativePos.applyQuaternion(nextQuat);
+
+                    // 3. New El Pos = nextPos + newRelativePos
+                    const newElPos = new THREE.Vector3().fromArray(nextPos).add(newRelativePos);
+
+                    // 4. New El Rot = alignQuat * elRot
+                    const elQuat = new THREE.Quaternion().fromArray(el.rotation || [0, 0, 0, 1]);
+                    const newElQuat = alignQuat.clone().multiply(elQuat);
+
+                    return {
+                        ...el,
+                        position: [newElPos.x, newElPos.y, newElPos.z],
+                        rotation: newElQuat.toArray() as [number, number, number, number],
+                        groupId: finalGroupId
+                    };
                 }
-                // If moving part was already in a group, update all members to the new final group
-                if (movingElGroupId && el.groupId === movingElGroupId) {
-                    return { ...el, groupId: finalGroupId };
-                }
+
                 // Ensure fixed part is also in the group
                 if (el.id === fixed.partId) {
                     return { ...el, groupId: finalGroupId };
