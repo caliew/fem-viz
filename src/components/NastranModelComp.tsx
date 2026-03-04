@@ -13,6 +13,7 @@ interface NastranModelCompProps {
     showLoads: boolean;
     showSPC?: boolean;
     visible?: boolean;
+    quaternion: [number, number, number, number];
 }
 
 interface BarData {
@@ -31,9 +32,11 @@ export const NastranModelComp: FC<NastranModelCompProps> = ({
     showElemIDs,
     showLoads,
     showSPC,
-    visible = true
+    visible = true,
+    quaternion
 }) => {
     const { nodes, elements, loads, constraints } = data;
+    const quatObj = useMemo(() => new THREE.Quaternion().fromArray(quaternion), [quaternion]);
 
     const { geometry, freeEdges, interiorEdges, elLabels, bars } = useMemo(() => {
         const vertices: number[] = [];
@@ -187,7 +190,7 @@ export const NastranModelComp: FC<NastranModelCompProps> = ({
     if (!visible) return null;
 
     return (
-        <group userData={{ isNastran: true }}>
+        <group position={[0, 0, 0]} quaternion={quatObj} userData={{ isNastran: true }}>
             {showMesh && (
                 <mesh key={`nastran-mesh-${visMode}`} geometry={geometry} castShadow receiveShadow userData={{ isNastran: true }}>
                     <shaderMaterial
