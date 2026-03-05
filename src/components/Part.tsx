@@ -7,7 +7,7 @@ import { VisMode } from '../types';
 interface PartProps {
     id: string;
     position: [number, number, number];
-    rotation?: [number, number, number, number];
+    quaternion: [number, number, number, number]; // stores quaternion
     color: number;
     visMode: VisMode;
     visible?: boolean;
@@ -17,12 +17,16 @@ interface PartProps {
     onDragEnd: (id: string) => void;
     isLocked: boolean;
     isDrawing: boolean;
+    isJoining?: boolean;
+    onSocketClick?: (partId: string, socketIndex: number) => void;
+    selectionInfo?: { partId: string, socketIndex: number } | null;
+    groupId?: string;
 }
 
 export const Part: FC<PartProps> = ({
     id,
     position,
-    rotation = [0, 0, 0, 1],
+    quaternion,
     color,
     visMode,
     visible = true,
@@ -31,7 +35,11 @@ export const Part: FC<PartProps> = ({
     onDrag,
     onDragEnd,
     isLocked,
-    isDrawing
+    isDrawing,
+    isJoining,
+    onSocketClick,
+    selectionInfo,
+    groupId
 }) => {
     const geometry = useMemo(() => {
         const geo = new THREE.BoxGeometry(1, 1, 1);
@@ -49,9 +57,9 @@ export const Part: FC<PartProps> = ({
     const dragPlane = useMemo(() => new THREE.Plane(), []);
     const dragOffset = useMemo(() => new THREE.Vector3(), []);
     const [isDragging, setIsDragging] = useState(false);
+    const quatObj = useMemo(() => new THREE.Quaternion().fromArray(quaternion), [quaternion]);
 
     const uniforms = useMemo(() => THREE.UniformsUtils.clone(FemShader.uniforms), []);
-    const quat = useMemo(() => new THREE.Quaternion().fromArray(rotation), [rotation]);
 
     useMemo(() => {
         uniforms.uColor.value.set(color);
@@ -67,7 +75,7 @@ export const Part: FC<PartProps> = ({
     }, [color, visMode, isSelected, uniforms]);
 
     const handlePointerDown = (e: ThreeEvent<PointerEvent>) => {
-        if (!visible || isLocked || isDrawing) return;
+        if (!visible || isLocked || isDrawing || isJoining) return;
         e.stopPropagation();
         onSelect();
 
@@ -77,6 +85,7 @@ export const Part: FC<PartProps> = ({
         (e.target as HTMLElement).setPointerCapture(e.pointerId);
 
         setIsDragging(true);
+        if (!meshRef.current) return;
         const meshWorldPos = new THREE.Vector3();
         meshRef.current.getWorldPosition(meshWorldPos);
 
@@ -130,7 +139,7 @@ export const Part: FC<PartProps> = ({
     const showMesh = visMode !== 'wireframe';
 
     return (
-        <group position={position} quaternion={quat}>
+        <group userData={{ isPart: true, partId: id, groupId }} position={position} quaternion={quatObj}>
             {showMesh && (
                 <mesh
                     ref={meshRef}
@@ -140,7 +149,6 @@ export const Part: FC<PartProps> = ({
                     onPointerDown={handlePointerDown}
                     onPointerMove={handlePointerMove}
                     onPointerUp={handlePointerUp}
-                    userData={{ isPart: true, partId: id }}
                 >
                     <shaderMaterial
                         key={`shader-${visMode}`}
@@ -149,6 +157,9 @@ export const Part: FC<PartProps> = ({
                         uniforms={uniforms}
                         transparent
                         depthTest={true}
+                        polygonOffset
+                        polygonOffsetFactor={1}
+                        polygonOffsetUnits={1}
                     />
                 </mesh>
             )}
@@ -157,9 +168,10 @@ export const Part: FC<PartProps> = ({
                 onPointerDown={handlePointerDown}
                 onPointerMove={handlePointerMove}
                 onPointerUp={handlePointerUp}
+                scale={[1.02, 1.02, 1.02]}
             >
                 <edgesGeometry args={[geometry]} />
-                <lineBasicMaterial color="white" opacity={0.5} transparent />
+                <lineBasicMaterial color={groupId ? "#00ff00" : "white"} opacity={1.0} transparent={false} linewidth={2} />
             </lineSegments>
 
             {/* Sockets with orientation */}
@@ -170,14 +182,39 @@ export const Part: FC<PartProps> = ({
                 { pos: [0, -0.5, 0], rot: [Math.PI / 2, 0, 0] },  // Bottom
                 { pos: [0, 0, 0.5], rot: [0, 0, 0] },           // Front
                 { pos: [0, 0, -0.5], rot: [0, Math.PI, 0] }      // Back
-            ].map((config, i) => (
-                <group
-                    key={i}
-                    position={config.pos as [number, number, number]}
-                    rotation={config.rot as [number, number, number]}
-                    userData={{ isSocket: true, socketIndex: i }}
-                />
-            ))}
+            ].map((config, i) => {
+                const isThisSelected = selectionInfo?.partId === id && selectionInfo?.socketIndex === i;
+                return (
+                    <group
+                        key={i}
+                        position={config.pos as [number, number, number]}
+                        rotation={config.rot as [number, number, number]}
+                        userData={{ isSocket: true, socketIndex: i }}
+                    >
+                        {isJoining && (
+                            <mesh
+                                onPointerDown={(e) => {
+                                    e.stopPropagation();
+                                    onSocketClick?.(id, i);
+                                }}
+                                onPointerOver={(e) => {
+                                    e.stopPropagation();
+                                    const mesh = e.object as THREE.Mesh;
+                                    (mesh.material as THREE.MeshBasicMaterial).color.set('#fcd34d');
+                                }}
+                                onPointerOut={(e) => {
+                                    e.stopPropagation();
+                                    const mesh = e.object as THREE.Mesh;
+                                    (mesh.material as THREE.MeshBasicMaterial).color.set(isThisSelected ? '#ef4444' : '#6366f1');
+                                }}
+                            >
+                                <sphereGeometry args={[0.12, 16, 16]} />
+                                <meshBasicMaterial color={isThisSelected ? '#ef4444' : '#6366f1'} transparent opacity={0.8} depthTest={false} />
+                            </mesh>
+                        )}
+                    </group>
+                );
+            })}
         </group>
     );
 };

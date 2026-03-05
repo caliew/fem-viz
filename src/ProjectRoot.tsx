@@ -10,87 +10,6 @@ import { ContextMenu } from './components/ContextMenu';
 import { NastranParser } from './NastranParser';
 import { SceneElement, VisMode, NastranData } from './types';
 
-// Dedicated Snapping Logic
-function checkSocketSnap(
-    draggedId: string,
-    elements: SceneElement[],
-    setElements: React.Dispatch<React.SetStateAction<SceneElement[]>>
-) {
-    const scene = (window as any).__G_SCENE as THREE.Scene;
-    if (!scene) return;
-
-    const parts = scene.children.filter(c => c.userData?.isPart);
-    const draggedMesh = parts.find(p => p.userData.partId === draggedId);
-    if (!draggedMesh) return;
-
-    const otherParts = parts.filter(p => p.userData.partId !== draggedId);
-    const snapThreshold = 0.6;
-
-    let bestSnap: any = null;
-    let minDistance = Infinity;
-
-    const draggedSockets = draggedMesh.children.filter(c => c.userData?.isSocket);
-
-    draggedSockets.forEach(ds => {
-        const dsWorldPos = new THREE.Vector3();
-        ds.getWorldPosition(dsWorldPos);
-
-        otherParts.forEach(tp => {
-            const targetSockets = tp.children.filter(c => c.userData?.isSocket);
-            targetSockets.forEach(ts => {
-                const tsWorldPos = new THREE.Vector3();
-                ts.getWorldPosition(tsWorldPos);
-
-                const dist = dsWorldPos.distanceTo(tsWorldPos);
-                if (dist < snapThreshold && dist < minDistance) {
-                    minDistance = dist;
-                    bestSnap = { ds, ts, tp, targetId: tp.userData.partId };
-                }
-            });
-        });
-    });
-
-    if (bestSnap) {
-        setElements(prev => {
-            const targetEl = prev.find(e => e.id === bestSnap.targetId);
-            const draggedEl = prev.find(e => e.id === draggedId);
-            if (!targetEl || !draggedEl) return prev;
-
-            const dsWorldQuat = new THREE.Quaternion();
-            bestSnap.ds.getWorldQuaternion(dsWorldQuat);
-            const dsNormal = new THREE.Vector3(0, 0, 1).applyQuaternion(dsWorldQuat);
-
-            const tsWorldQuat = new THREE.Quaternion();
-            bestSnap.ts.getWorldQuaternion(tsWorldQuat);
-            const tsNormal = new THREE.Vector3(0, 0, 1).applyQuaternion(tsWorldQuat);
-            const desiredNormal = tsNormal.clone().negate();
-
-            const alignQuat = new THREE.Quaternion().setFromUnitVectors(dsNormal, desiredNormal);
-            const currentQuat = new THREE.Quaternion().fromArray(draggedEl.rotation || [0, 0, 0, 1]);
-            const nextQuat = alignQuat.clone().multiply(currentQuat);
-
-            const dsLocalPos = (bestSnap.ds as THREE.Object3D).position.clone();
-            const partWorldPos = new THREE.Vector3().fromArray(draggedEl.position);
-            const rotatedDSWorldPos = dsLocalPos.applyQuaternion(nextQuat).add(partWorldPos);
-
-            const tsWorldPos = new THREE.Vector3();
-            bestSnap.ts.getWorldPosition(tsWorldPos);
-            const trOffset = new THREE.Vector3().subVectors(tsWorldPos, rotatedDSWorldPos);
-            const nextPos: [number, number, number] = [
-                partWorldPos.x + trOffset.x,
-                partWorldPos.y + trOffset.y,
-                partWorldPos.z + trOffset.z
-            ];
-
-            return prev.map(el => {
-                if (el.id === draggedId) {
-                    return { ...el, position: nextPos, rotation: nextQuat.toArray() as [number, number, number, number] };
-                }
-                return el;
-            });
-        });
-    }
-}
 
 interface SceneListenerProps {
     onSceneInit: (scene: THREE.Scene) => void;
@@ -115,6 +34,8 @@ export default function ProjectRoot() {
     const [selectedId, setSelectedId] = useState<string | null>(null);
     const [isLocked, setIsLocked] = useState(false);
     const [isDrawing, setIsDrawing] = useState(false);
+    const [isJoining, setIsJoining] = useState(false);
+    const [joinSelection, setJoinSelection] = useState<{ partId: string, socketIndex: number } | null>(null);
     const [currentColor, setCurrentColor] = useState(0xef4444);
 
     const [showGridIDs, setShowGridIDs] = useState(false);
@@ -198,6 +119,176 @@ export default function ProjectRoot() {
         }
     }, [selectedId]);
 
+    const ungroup = useCallback(() => {
+        if (!selectedId) return;
+        setElements(prev => {
+            const selected = prev.find(e => e.id === selectedId);
+            if (!selected || !selected.groupId) return prev;
+            // Detach ONLY the selected part from the group
+            return prev.map(el => {
+                if (el.id === selectedId) {
+                    const { groupId, ...rest } = el;
+                    return rest;
+                }
+                return el;
+            });
+        });
+    }, [selectedId]);
+
+    const handleDrag = useCallback((id: string, newWorldPos: THREE.Vector3) => {
+        setElements(prev => {
+            const dragged = prev.find(e => e.id === id);
+            if (!dragged) return prev;
+
+            const delta = [
+                newWorldPos.x - dragged.position[0],
+                newWorldPos.y - dragged.position[1],
+                newWorldPos.z - dragged.position[2]
+            ];
+
+            return prev.map(el => {
+                if (el.id === id || (dragged.groupId && el.groupId === dragged.groupId)) {
+                    return {
+                        ...el,
+                        position: [
+                            el.position[0] + delta[0],
+                            el.position[1] + delta[1],
+                            el.position[2] + delta[2]
+                        ]
+                    };
+                }
+                return el;
+            });
+        });
+    }, []);
+
+    const handleDragEnd = useCallback((id: string) => {
+        // Trigger snap only at the end of a drag to allow dragging "away" from a group
+        // without immediate re-snapping
+        checkSocketSnap(id, elements, setElements);
+    }, [elements]);
+
+    function checkSocketSnap(
+        draggedId: string,
+        elements: SceneElement[],
+        setElements: React.Dispatch<React.SetStateAction<SceneElement[]>>
+    ) {
+        const scene = (window as any).__G_SCENE as THREE.Scene;
+        if (!scene) return;
+
+        const parts = scene.children.filter(c => c.userData?.isPart);
+        const draggedMesh = parts.find(p => p.userData.partId === draggedId);
+        if (!draggedMesh) return;
+
+        const draggedEl = elements.find(e => e.id === draggedId);
+        const otherParts = parts.filter(p => (
+            p.userData.partId !== draggedId &&
+            (!draggedEl?.groupId || p.userData.groupId !== draggedEl.groupId)
+        ));
+
+        // Thresholds: Only snap if close, but NOT if already perfectly flush (to allow Detach)
+        const snapThreshold = 0.6;
+        const minSnapDist = 0.05;
+
+        let bestSnap: any = null;
+        let minDistance = Infinity;
+
+        const draggedSockets = draggedMesh.children.filter(c => c.userData?.isSocket);
+
+        draggedSockets.forEach(ds => {
+            const dsWorldPos = new THREE.Vector3();
+            ds.getWorldPosition(dsWorldPos);
+
+            otherParts.forEach(tp => {
+                const targetSockets = tp.children.filter(c => c.userData?.isSocket);
+                targetSockets.forEach(ts => {
+                    const tsWorldPos = new THREE.Vector3();
+                    ts.getWorldPosition(tsWorldPos);
+
+                    const dist = dsWorldPos.distanceTo(tsWorldPos);
+                    // Only snap if we are within range but NOT already touching (prevents re-snap after ungroup)
+                    if (dist < snapThreshold && dist > minSnapDist && dist < minDistance) {
+                        minDistance = dist;
+                        bestSnap = { ds, ts, tp, targetId: tp.userData.partId };
+                    }
+                });
+            });
+        });
+
+        if (bestSnap) {
+            setElements(prev => {
+                const targetEl = prev.find(e => e.id === bestSnap.targetId);
+                const draggedEl = prev.find(e => e.id === draggedId);
+                if (!targetEl || !draggedEl) return prev;
+
+                const dsWorldQuat = new THREE.Quaternion();
+                bestSnap.ds.getWorldQuaternion(dsWorldQuat);
+                const dsNormal = new THREE.Vector3(0, 0, 1).applyQuaternion(dsWorldQuat);
+
+                const tsWorldQuat = new THREE.Quaternion();
+                bestSnap.ts.getWorldQuaternion(tsWorldQuat);
+                const tsNormal = new THREE.Vector3(0, 0, 1).applyQuaternion(tsWorldQuat);
+                const desiredNormal = tsNormal.clone().negate();
+
+                const alignQuat = new THREE.Quaternion().setFromUnitVectors(dsNormal, desiredNormal);
+                const currentQuat = new THREE.Quaternion().fromArray(draggedEl.rotation || [0, 0, 0, 1]);
+                const nextQuat = alignQuat.clone().multiply(currentQuat);
+
+                const dsLocalPos = (bestSnap.ds as THREE.Object3D).position.clone();
+                const partWorldPos = new THREE.Vector3().fromArray(draggedEl.position);
+                const rotatedDSWorldPos = dsLocalPos.applyQuaternion(nextQuat).add(partWorldPos);
+
+                const tsWorldPos = new THREE.Vector3();
+                bestSnap.ts.getWorldPosition(tsWorldPos);
+                const trOffset = new THREE.Vector3().subVectors(tsWorldPos, rotatedDSWorldPos);
+
+                const delta = [trOffset.x, trOffset.y, trOffset.z];
+                const finalGroupId = targetEl.groupId || draggedEl.groupId || Math.random().toString(36).substring(2, 11);
+
+                const mOldPos = new THREE.Vector3().fromArray(draggedEl.position);
+                const mOldQuat = new THREE.Quaternion().fromArray(draggedEl.rotation || [0, 0, 0, 1]);
+
+                return prev.map(el => {
+                    const isPartOrMember = el.id === draggedId || (draggedEl.groupId && el.groupId === draggedEl.groupId);
+
+                    if (isPartOrMember) {
+                        const targetPos = new THREE.Vector3().fromArray(draggedEl.position).add(trOffset);
+
+                        if (el.id === draggedId) {
+                            return {
+                                ...el,
+                                position: [targetPos.x, targetPos.y, targetPos.z],
+                                rotation: nextQuat.toArray() as [number, number, number, number],
+                                groupId: finalGroupId
+                            };
+                        }
+
+                        // For group members: match rotation and relative position
+                        const elPos = new THREE.Vector3().fromArray(el.position);
+                        const relativePos = elPos.clone().sub(mOldPos).applyQuaternion(mOldQuat.clone().invert());
+                        const newRelativePos = relativePos.applyQuaternion(nextQuat);
+                        const newElPos = targetPos.clone().add(newRelativePos);
+
+                        const elQuat = new THREE.Quaternion().fromArray(el.rotation || [0, 0, 0, 1]);
+                        const newElQuat = alignQuat.clone().multiply(elQuat);
+
+                        return {
+                            ...el,
+                            position: [newElPos.x, newElPos.y, newElPos.z],
+                            rotation: newElQuat.toArray() as [number, number, number, number],
+                            groupId: finalGroupId
+                        };
+                    }
+
+                    if (el.id === bestSnap.targetId) {
+                        return { ...el, groupId: finalGroupId };
+                    }
+                    return el;
+                });
+            });
+        }
+    }
+
     const fitCameraToObjects = useCallback(() => {
         const scene = (window as any).__G_SCENE as THREE.Scene;
         const camera = (window as any).__G_CAMERA as THREE.PerspectiveCamera;
@@ -258,7 +349,19 @@ export default function ProjectRoot() {
             if (key === 'a') addPart();
             if (key === 'd' || key === 'delete' || key === 'backspace') deletePart();
             if (key === 'p') setIsDrawing(prev => !prev);
+            if (key === 'j') {
+                setIsJoining(prev => !prev);
+                setJoinSelection(null);
+            }
             if (key === 'r') (window as any).__G_ROTATE_MODE = !(window as any).__G_ROTATE_MODE;
+            if (key === 'u') ungroup();
+            if (key === 'escape') {
+                setIsDrawing(false);
+                setIsJoining(false);
+                setJoinSelection(null);
+                setMenuVisible(false);
+                setSelectedId(null);
+            }
 
             if (key === 'c') setVisMode('contour');
             if (key === 's') setVisMode('shaded');
@@ -274,7 +377,7 @@ export default function ProjectRoot() {
         };
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [addPart, deletePart, rotateSelected, changeColor, fitCameraToObjects, palette]);
+    }, [addPart, deletePart, rotateSelected, changeColor, fitCameraToObjects, palette, ungroup, isDrawing, isJoining, isLocked, joinSelection]);
 
     const handleImportNastran = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -293,17 +396,157 @@ export default function ProjectRoot() {
         reader.readAsText(file);
     };
 
-    const handleDrag = (id: string, newWorldPos: THREE.Vector3) => {
-        setElements(prev => prev.map(el => {
-            if (el.id === id) {
-                return { ...el, position: [newWorldPos.x, newWorldPos.y, newWorldPos.z] };
-            }
-            return el;
-        }));
-        checkSocketSnap(id, elements, setElements);
-    };
 
-    const handleDragEnd = (id: string) => { };
+    const [joinError, setJoinError] = useState<string | null>(null);
+
+    const performJoin = useCallback((fixed: { partId: string, socketIndex: number }, moving: { partId: string, socketIndex: number }) => {
+        const scene = (window as any).__G_SCENE as THREE.Scene;
+        if (!scene) return;
+
+        setJoinError(null);
+        console.log('Perform Join:', { fixed, moving });
+
+        // Find root groups by searching all objects in the scene
+        let fixedGroup: THREE.Object3D | undefined;
+        let movingGroup: THREE.Object3D | undefined;
+
+        scene.traverse(obj => {
+            if (obj.userData?.isPart) {
+                if (obj.userData.partId === fixed.partId) fixedGroup = obj;
+                if (obj.userData.partId === moving.partId) movingGroup = obj;
+            }
+        });
+
+        if (!fixedGroup || !movingGroup) {
+            setJoinError('Units not found in scene');
+            return;
+        }
+
+        // Find precise socket objects within their groups
+        let fixedSocket: THREE.Object3D | undefined;
+        let movingSocket: THREE.Object3D | undefined;
+
+        fixedGroup.traverse(obj => {
+            if (obj.userData?.isSocket && obj.userData.socketIndex === fixed.socketIndex) fixedSocket = obj;
+        });
+        movingGroup.traverse(obj => {
+            if (obj.userData?.isSocket && obj.userData.socketIndex === moving.socketIndex) movingSocket = obj;
+        });
+
+        if (!fixedSocket || !movingSocket) {
+            setJoinError('Sockets not found on objects');
+            return;
+        }
+
+        const fs = fixedSocket;
+        const ms = movingSocket;
+
+        setElements(prev => {
+            const movingEl = prev.find(e => e.id === moving.partId);
+            const fixedEl = prev.find(e => e.id === fixed.partId);
+            if (!movingEl || !fixedEl) return prev;
+
+            // 1. Calculate the rotation required to align ms normal to -fs normal
+            const mSocketWorldQuat = new THREE.Quaternion();
+            ms.getWorldQuaternion(mSocketWorldQuat);
+            const mNormal = new THREE.Vector3(0, 0, 1).applyQuaternion(mSocketWorldQuat);
+
+            const fSocketWorldQuat = new THREE.Quaternion();
+            fs.getWorldQuaternion(fSocketWorldQuat);
+            const fNormal = new THREE.Vector3(0, 0, 1).applyQuaternion(fSocketWorldQuat);
+            const desiredNormal = fNormal.clone().negate();
+
+            // Quat that rotates mNormal to desiredNormal
+            const alignQuat = new THREE.Quaternion().setFromUnitVectors(mNormal, desiredNormal);
+
+            // Apply it to moving object's current rotation
+            const currentQuat = new THREE.Quaternion().fromArray(movingEl.rotation || [0, 0, 0, 1]);
+            const nextQuat = alignQuat.clone().multiply(currentQuat);
+
+            // 2. Calculate the position so that the rotated moving socket matches the fixed socket
+            // Socket position relative to part origin
+            const mSocketLocalPos = ms.position.clone();
+            const fSocketWorldPos = new THREE.Vector3();
+            fs.getWorldPosition(fSocketWorldPos);
+
+            // After rotation 'nextQuat', the relative world offset is: nextQuat * mSocketLocalPos
+            const rotatedOffset = mSocketLocalPos.clone().applyQuaternion(nextQuat);
+
+            // New part position = fixed socket world position - rotated offset
+            const nextPosVec = fSocketWorldPos.clone().sub(rotatedOffset);
+            const nextPos: [number, number, number] = [nextPosVec.x, nextPosVec.y, nextPosVec.z];
+
+            console.log('Join SUCCESS:', { nextPos, nextQuat: nextQuat.toArray() });
+
+            // 3. Determine Group Logic & Transform Assembly
+            let finalGroupId = fixedEl.groupId || movingEl.groupId;
+            if (!finalGroupId) {
+                finalGroupId = Math.random().toString(36).substr(2, 9);
+            }
+
+            const movingElGroupId = movingEl.groupId;
+
+            // Calculate assembly-wide transformation
+            // We need to move every element 'el' in the moving group such that its 
+            // relative position to 'movingEl' is maintained after 'movingEl' 
+            // is moved to 'nextPos' and rotated to 'nextQuat'.
+            const mOldPos = new THREE.Vector3().fromArray(movingEl.position);
+            const mOldQuat = new THREE.Quaternion().fromArray(movingEl.rotation || [0, 0, 0, 1]);
+
+            return prev.map(el => {
+                const isPartOrMember = el.id === moving.partId || (movingElGroupId && el.groupId === movingElGroupId);
+
+                if (isPartOrMember) {
+                    if (el.id === moving.partId) {
+                        return { ...el, position: nextPos, rotation: nextQuat.toArray() as [number, number, number, number], groupId: finalGroupId };
+                    }
+
+                    // For other members of the same group:
+                    // 1. Get relative pos in local space of movingEl
+                    const elPos = new THREE.Vector3().fromArray(el.position);
+                    const relativePos = elPos.clone().sub(mOldPos).applyQuaternion(mOldQuat.clone().invert());
+
+                    // 2. Rotate relative pos by the new orientation
+                    const newRelativePos = relativePos.applyQuaternion(nextQuat);
+
+                    // 3. New El Pos = nextPos + newRelativePos
+                    const newElPos = new THREE.Vector3().fromArray(nextPos).add(newRelativePos);
+
+                    // 4. New El Rot = alignQuat * elRot
+                    const elQuat = new THREE.Quaternion().fromArray(el.rotation || [0, 0, 0, 1]);
+                    const newElQuat = alignQuat.clone().multiply(elQuat);
+
+                    return {
+                        ...el,
+                        position: [newElPos.x, newElPos.y, newElPos.z],
+                        rotation: newElQuat.toArray() as [number, number, number, number],
+                        groupId: finalGroupId
+                    };
+                }
+
+                // Ensure fixed part is also in the group
+                if (el.id === fixed.partId) {
+                    return { ...el, groupId: finalGroupId };
+                }
+                return el;
+            });
+        });
+    }, []);
+
+    const handleSocketClick = useCallback((partId: string, socketIndex: number) => {
+        if (!joinSelection) {
+            setJoinSelection({ partId, socketIndex });
+        } else {
+            if (joinSelection.partId === partId) {
+                setJoinSelection(null);
+                setIsJoining(false);
+                return;
+            }
+            performJoin(joinSelection, { partId, socketIndex });
+            setJoinSelection(null);
+            setIsJoining(false);
+        }
+    }, [joinSelection, performJoin]);
 
     const handleMouseDown = (e: React.MouseEvent) => {
         if (e.button === 2) { // Right click
@@ -363,7 +606,8 @@ export default function ProjectRoot() {
         { isSeparator: true },
         { label: 'Add', shortcut: 'A', onClick: addPart },
         { label: 'Draw', shortcut: 'P', checked: isDrawing, onClick: () => setIsDrawing(!isDrawing) },
-        { label: 'Del', shortcut: 'D', onClick: deletePart, danger: true },
+        { label: 'Join', shortcut: 'J', checked: isJoining, onClick: () => { setIsJoining(!isJoining); setJoinSelection(null); } },
+        { label: 'Ungroup', shortcut: 'U', onClick: ungroup },
         { isSeparator: true },
         { label: 'BDF Import', onClick: () => document.getElementById('nastran-input')?.click() },
     ];
@@ -401,9 +645,9 @@ export default function ProjectRoot() {
                 }} onCancel={() => setIsDrawing(false)} />}
 
                 {elements.map(el => {
-                    if (el.type === 'block') return <Part key={el.id} id={el.id} position={el.position} rotation={el.rotation} color={el.color} visMode={visMode} visible={showBlocks} isSelected={selectedId === el.id} onSelect={() => setSelectedId(el.id)} onDrag={handleDrag} onDragEnd={handleDragEnd} isLocked={isLocked} isDrawing={isDrawing} />;
-                    if (el.type === 'nastran' && el.data) return <NastranModelComp key={el.id} data={el.data} color={el.color} visMode={visMode} showGridIDs={showGridIDs} showElemIDs={showElemIDs} showLoads={showLoads} showSPC={showSPC} visible={showFE} />;
-                    if (el.type === 'floorplan' && el.points) return <FloorplanModelComp key={el.id} id={el.id} points={el.points} position={el.position} color={el.color} visMode={visMode} visible={showBlocks} isSelected={selectedId === el.id} onSelect={() => setSelectedId(el.id)} onDrag={handleDrag} onDragEnd={handleDragEnd} isLocked={isLocked} isDrawing={isDrawing} />;
+                    if (el.type === 'block') return <Part key={el.id} id={el.id} position={el.position} quaternion={el.rotation} color={el.color} visMode={visMode} visible={showBlocks} isSelected={selectedId === el.id} onSelect={() => setSelectedId(el.id)} onDrag={handleDrag} onDragEnd={handleDragEnd} isLocked={isLocked} isDrawing={isDrawing} isJoining={isJoining} onSocketClick={handleSocketClick} selectionInfo={joinSelection} groupId={el.groupId} />;
+                    if (el.type === 'nastran' && el.data) return <NastranModelComp key={el.id} data={el.data} color={el.color} visMode={visMode} showGridIDs={showGridIDs} showElemIDs={showElemIDs} showLoads={showLoads} showSPC={showSPC} visible={showFE} quaternion={el.rotation} />;
+                    if (el.type === 'floorplan' && el.points) return <FloorplanModelComp key={el.id} id={el.id} points={el.points} position={el.position} color={el.color} visMode={visMode} visible={showBlocks} isSelected={selectedId === el.id} onSelect={() => setSelectedId(el.id)} onDrag={handleDrag} onDragEnd={handleDragEnd} isLocked={isLocked} isDrawing={isDrawing} groupId={el.groupId} quaternion={el.rotation} isJoining={isJoining} />;
                     return null;
                 })}
             </Canvas>
@@ -413,15 +657,24 @@ export default function ProjectRoot() {
                 <div className="status-bar">
                     Status: <span className="status-tag" style={{ color: isLocked ? '#ef4444' : '#22c55e' }}>{isLocked ? 'LOCKED' : 'UNLOCKED'}</span> |
                     Mode: <span className="status-tag" style={{ color: '#6366f1' }}>{visMode}</span>
+                    {isJoining && (
+                        <> | <span className="status-tag" style={{ color: '#f59e0b' }}>JOINING: {joinSelection ? 'Select Moving Face' : 'Select Fixed Face'}</span></>
+                    )}
+                    {joinError && (
+                        <> | <span className="status-tag" style={{ color: '#ef4444' }}>ERROR: {joinError}</span></>
+                    )}
                 </div>
                 <div className="keybind-hint">
-                    <b>L</b>: Lock | <b>W</b>: Wire | <b>E</b>: FreeEdge | <b>H</b>: Hidden | <b>S</b>: Shaded | <b>C</b>: Contour | <b>F</b>: Fit
+                    <b>L</b>: Lock | <b>W</b>: Wire | <b>E</b>: FreeEdge | <b>H</b>: Hidden | <b>S</b>: Shaded | <b>C</b>: Contour | <b>F</b>: Fit | <b>J</b>: Join
                 </div>
 
                 <div className="controls-group">
                     <button onClick={addPart} className="btn btn-primary">Add (A)</button>
                     <button onClick={() => setIsDrawing(!isDrawing)} className={`btn ${isDrawing ? 'btn-danger' : 'btn-secondary'}`}>
                         {isDrawing ? 'Cancel' : 'Draw (P)'}
+                    </button>
+                    <button onClick={() => { setIsJoining(!isJoining); setJoinSelection(null); }} className={`btn ${isJoining ? 'btn-danger' : 'btn-accent'}`}>
+                        {isJoining ? 'Cancel' : 'Join (J)'}
                     </button>
                     <button onClick={deletePart} className="btn btn-danger">Del</button>
                     <button onClick={() => document.getElementById('nastran-input')?.click()} className="btn btn-accent">BDF</button>

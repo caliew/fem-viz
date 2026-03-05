@@ -15,8 +15,11 @@ interface FloorplanModelCompProps {
     onSelect: () => void;
     onDrag: (id: string, targetWorldPos: THREE.Vector3) => void;
     onDragEnd: (id: string) => void;
-    isLocked: boolean;
-    isDrawing: boolean;
+    isLocked?: boolean;
+    isDrawing?: boolean;
+    groupId?: string;
+    quaternion: [number, number, number, number];
+    isJoining?: boolean;
 }
 
 export const FloorplanModelComp: FC<FloorplanModelCompProps> = ({
@@ -31,10 +34,14 @@ export const FloorplanModelComp: FC<FloorplanModelCompProps> = ({
     onDrag,
     onDragEnd,
     isLocked,
-    isDrawing
+    isDrawing,
+    groupId,
+    quaternion,
+    isJoining
 }) => {
     const meshRef = useRef<THREE.Mesh>(null!);
     const { raycaster, camera, mouse } = useThree();
+    const quatObj = useMemo(() => new THREE.Quaternion().fromArray(quaternion), [quaternion]);
     const dragPlane = useMemo(() => new THREE.Plane(), []);
     const dragOffset = useMemo(() => new THREE.Vector3(), []);
     const [isDragging, setIsDragging] = useState(false);
@@ -80,7 +87,7 @@ export const FloorplanModelComp: FC<FloorplanModelCompProps> = ({
     const showMesh = visMode !== 'wireframe';
 
     const handlePointerDown = (e: ThreeEvent<PointerEvent>) => {
-        if (!visible || isLocked || isDrawing) return;
+        if (!visible || isLocked || isDrawing || isJoining) return;
         e.stopPropagation();
         onSelect();
 
@@ -90,6 +97,7 @@ export const FloorplanModelComp: FC<FloorplanModelCompProps> = ({
         (e.target as HTMLElement).setPointerCapture(e.pointerId);
 
         setIsDragging(true);
+        if (!meshRef.current) return;
         const meshWorldPos = new THREE.Vector3();
         meshRef.current.getWorldPosition(meshWorldPos);
 
@@ -131,7 +139,7 @@ export const FloorplanModelComp: FC<FloorplanModelCompProps> = ({
     };
 
     return (
-        <group position={position}>
+        <group userData={{ isPart: true, partId: id, groupId }} position={position} quaternion={quatObj}>
             {showMesh && (
                 <mesh
                     ref={meshRef}
@@ -142,7 +150,6 @@ export const FloorplanModelComp: FC<FloorplanModelCompProps> = ({
                     onPointerDown={handlePointerDown}
                     onPointerMove={handlePointerMove}
                     onPointerUp={handlePointerUp}
-                    userData={{ isPart: true, partId: id }}
                 >
                     <shaderMaterial
                         attach="material"
@@ -151,10 +158,10 @@ export const FloorplanModelComp: FC<FloorplanModelCompProps> = ({
                         uniforms={uniforms}
                         transparent
                         side={THREE.DoubleSide}
+                        depthTest={true}
                         polygonOffset
                         polygonOffsetFactor={1}
                         polygonOffsetUnits={1}
-                        depthTest={true}
                     />
                 </mesh>
             )}
@@ -162,9 +169,10 @@ export const FloorplanModelComp: FC<FloorplanModelCompProps> = ({
                 onPointerDown={handlePointerDown}
                 onPointerMove={handlePointerMove}
                 onPointerUp={handlePointerUp}
+                scale={[1.02, 1.02, 1.02]}
             >
                 <edgesGeometry args={[geometry]} />
-                <lineBasicMaterial color="white" opacity={0.6} transparent />
+                <lineBasicMaterial color={groupId ? "#00ff00" : "white"} opacity={1.0} transparent={false} />
             </lineSegments>
         </group>
     );
