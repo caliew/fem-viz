@@ -1,7 +1,7 @@
 import { render } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
 import { NastranModelComp } from './NastranModelComp';
-import { NastranData } from '../types';
+import { NastranData } from '../../types';
 import * as THREE from 'three';
 import React from 'react';
 

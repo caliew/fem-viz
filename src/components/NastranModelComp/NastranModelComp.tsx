@@ -1,8 +1,8 @@
 import React, { useMemo, FC } from 'react';
 import * as THREE from 'three';
-import { FemShader } from '../FemShader';
+import { FemShader } from '../../FemShader';
 import { Html } from '@react-three/drei';
-import { NastranData, VisMode } from '../types';
+import { NastranData, VisMode } from '../../types';
 
 interface NastranModelCompProps {
     data: NastranData;

@@ -2,11 +2,11 @@ import React, { useState, useMemo, useRef, useEffect, useCallback, FC } from 're
 import { Canvas, useThree } from '@react-three/fiber';
 import { OrbitControls, PerspectiveCamera, Grid } from '@react-three/drei';
 import * as THREE from 'three';
-import { Part } from './components/Part';
-import { NastranModelComp } from './components/NastranModelComp';
-import { FloorplanModelComp } from './components/FloorplanModelComp';
-import { DrawingSystem } from './components/DrawingSystem';
-import { ContextMenu } from './components/ContextMenu';
+import { Part } from './components/Part/Part';
+import { NastranModelComp } from './components/NastranModelComp/NastranModelComp';
+import { FloorplanModelComp } from './components/FloorplanModelComp/FloorplanModelComp';
+import { DrawingSystem } from './components/DrawingSystem/DrawingSystem';
+import { ContextMenu } from './components/ContextMenu/ContextMenu';
 import { NastranParser } from './NastranParser';
 import { SceneElement, VisMode, NastranData } from './types';
 
