@@ -1,7 +1,7 @@
 import React, { useMemo, useRef, useState, FC } from 'react';
 import * as THREE from 'three';
 import { useThree, ThreeEvent } from '@react-three/fiber';
-import { FemShader } from '../../FemShader';
+import { FemShader } from '../../shaders/FemShader';
 import { VisMode } from '../../types';
 
 interface FloorplanModelCompProps {

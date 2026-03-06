@@ -7,7 +7,7 @@ import {
     NastranLoad,
     NastranConstraint,
     NastranData
-} from './types';
+} from '../types';
 
 export class NastranParser {
     nodes: Map<number, NastranNode> = new Map();

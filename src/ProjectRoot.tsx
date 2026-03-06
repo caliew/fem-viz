@@ -7,7 +7,7 @@ import { NastranModelComp } from './components/NastranModelComp/NastranModelComp
 import { FloorplanModelComp } from './components/FloorplanModelComp/FloorplanModelComp';
 import { DrawingSystem } from './components/DrawingSystem/DrawingSystem';
 import { ContextMenu } from './components/ContextMenu/ContextMenu';
-import { NastranParser } from './NastranParser';
+import { NastranParser } from './parser/NastranParser';
 import { SceneElement, VisMode, NastranData } from './types';
 
 
