@@ -83,7 +83,9 @@ export const DrawingSystem: FC<DrawingSystemProps> = ({ onFinish, onCancel, colo
     const previewLineObj = useMemo(() => {
         const mat = new THREE.LineDashedMaterial({ color: hexColor, dashSize: 0.2, gapSize: 0.1, opacity: 0.8, transparent: true, depthTest: false });
         const line = new THREE.Line(previewGeometry, mat);
-        line.computeLineDistances();
+        if (previewGeometry.attributes.position) {
+            line.computeLineDistances();
+        }
         return line;
     }, [previewGeometry, hexColor]);
 
