@@ -7,7 +7,7 @@ import {
     NastranLoad,
     NastranConstraint,
     NastranData
-} from './types';
+} from '../types';
 
 export class NastranParser {
     nodes: Map<number, NastranNode> = new Map();
@@ -146,7 +146,8 @@ export class NastranParser {
         } else {
             // Fixed width (Small Field) - up to 10 fields (80 chars)
             const fields: string[] = [];
-            for (let i = 0; i < 10; i++) {
+            const numFields = Math.max(10, Math.ceil(line.length / 8));
+            for (let i = 0; i < numFields; i++) {
                 const start = i * 8;
                 if (start >= line.length) {
                     fields.push("");

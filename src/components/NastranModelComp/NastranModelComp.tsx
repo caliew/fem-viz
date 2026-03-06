@@ -1,8 +1,8 @@
 import React, { useMemo, FC } from 'react';
 import * as THREE from 'three';
-import { FemShader } from '../FemShader';
+import { FemShader } from '../../shaders/FemShader';
 import { Html } from '@react-three/drei';
-import { NastranData, VisMode } from '../types';
+import { NastranData, VisMode } from '../../types';
 
 interface NastranModelCompProps {
     data: NastranData;
@@ -192,7 +192,7 @@ export const NastranModelComp: FC<NastranModelCompProps> = ({
     return (
         <group position={[0, 0, 0]} quaternion={quatObj} userData={{ isNastran: true }}>
             {showMesh && (
-                <mesh key={`nastran-mesh-${visMode}`} geometry={geometry} castShadow receiveShadow userData={{ isNastran: true }}>
+                <mesh key={`nastran - mesh - ${visMode} `} geometry={geometry} castShadow receiveShadow userData={{ isNastran: true }}>
                     <shaderMaterial
                         attach="material"
                         vertexShader={FemShader.vertexShader}
@@ -208,7 +208,7 @@ export const NastranModelComp: FC<NastranModelCompProps> = ({
             )}
 
             {showMesh && bars.map(bar => (
-                <mesh key={`bar-${bar.id}-${visMode}`} position={bar.pos} quaternion={bar.quat} castShadow receiveShadow userData={{ isNastran: true }}>
+                <mesh key={`bar - ${bar.id} -${visMode} `} position={bar.pos} quaternion={bar.quat} castShadow receiveShadow userData={{ isNastran: true }}>
                     <cylinderGeometry args={[0.03, 0.03, bar.height, 8]} />
                     <shaderMaterial
                         attach="material"
@@ -240,13 +240,13 @@ export const NastranModelComp: FC<NastranModelCompProps> = ({
             </lineSegments>
 
             {showGridIDs && Array.from(nodes).map(([id, pos]) => (
-                <Html key={`node-${id}`} position={[pos.x, pos.y, pos.z]} center distanceFactor={10}>
+                <Html key={`node - ${id} `} position={[pos.x, pos.y, pos.z]} center distanceFactor={10}>
                     <div className="label-grid-id">{id}</div>
                 </Html>
             ))}
 
             {showElemIDs && elLabels.map((lab, idx) => (
-                <Html key={`elem-${lab.id}-${idx}`} position={lab.pos} center distanceFactor={10}>
+                <Html key={`elem - ${lab.id} -${idx} `} position={lab.pos} center distanceFactor={10}>
                     <div className="label-elem-id">{lab.id}</div>
                 </Html>
             ))}
@@ -256,7 +256,7 @@ export const NastranModelComp: FC<NastranModelCompProps> = ({
                 if (!node) return null;
                 return (
                     <primitive
-                        key={`load-${idx}`}
+                        key={`load - ${idx} `}
                         object={new THREE.ArrowHelper(
                             new THREE.Vector3(load.direction.x, load.direction.y, load.direction.z),
                             new THREE.Vector3(node.x, node.y, node.z),
@@ -271,7 +271,7 @@ export const NastranModelComp: FC<NastranModelCompProps> = ({
                 const node = nodes.get(spc.nodeId);
                 if (!node) return null;
                 return (
-                    <mesh key={`spc-${idx}`} position={[node.x, node.y, node.z]}>
+                    <mesh key={`spc - ${idx} `} position={[node.x, node.y, node.z]}>
                         <sphereGeometry args={[0.08, 8, 8]} />
                         <meshBasicMaterial color="#22c55e" />
                     </mesh>

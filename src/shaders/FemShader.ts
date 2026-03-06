@@ -43,18 +43,18 @@ export const FemShader = {
         varying vec3 vViewPosition;
         varying vec3 vColor;
         
-        uniform float uShowStress;
-        uniform vec3 uColor;
-        uniform float uHighlight;
-        uniform float uVisMode;
-        uniform float uUseVertexColor;
-        
         vec3 colormap(float t) {
             float r = clamp(1.5 - abs(4.0 * t - 3.0), 0.0, 1.0);
             float g = clamp(1.5 - abs(4.0 * t - 2.0), 0.0, 1.0);
             float b = clamp(1.5 - abs(4.0 * t - 1.0), 0.0, 1.0);
             return vec3(r, g, b);
         }
+
+        uniform float uShowStress;
+        uniform vec3 uColor;
+        uniform float uHighlight;
+        uniform float uVisMode;
+        uniform float uUseVertexColor;
 
         void main() {
             if (uVisMode > 2.5) {
