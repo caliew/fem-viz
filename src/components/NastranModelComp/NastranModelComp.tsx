@@ -1,10 +1,12 @@
-import React, { useMemo, FC } from 'react';
+import React, { useMemo, useRef, useState, FC } from 'react';
 import * as THREE from 'three';
+import { useThree, ThreeEvent } from '@react-three/fiber';
 import { FemShader } from '../../shaders/FemShader';
 import { Html } from '@react-three/drei';
 import { NastranData, VisMode } from '../../types';
 
 interface NastranModelCompProps {
+    id: string;
     data: NastranData;
     color: number;
     visMode: VisMode;
@@ -13,7 +15,13 @@ interface NastranModelCompProps {
     showLoads: boolean;
     showSPC?: boolean;
     visible?: boolean;
+    position: [number, number, number];
     quaternion: [number, number, number, number];
+    isSelected: boolean;
+    onSelect: () => void;
+    onDrag: (id: string, targetWorldPos: THREE.Vector3) => void;
+    onDragEnd: (id: string) => void;
+    isLocked: boolean;
 }
 
 interface BarData {
@@ -25,6 +33,7 @@ interface BarData {
 }
 
 export const NastranModelComp: FC<NastranModelCompProps> = ({
+    id,
     data,
     color,
     visMode,
@@ -33,10 +42,21 @@ export const NastranModelComp: FC<NastranModelCompProps> = ({
     showLoads,
     showSPC,
     visible = true,
-    quaternion
+    position,
+    quaternion,
+    isSelected,
+    onSelect,
+    onDrag,
+    onDragEnd,
+    isLocked
 }) => {
     const { nodes, elements, loads, constraints } = data;
     const quatObj = useMemo(() => new THREE.Quaternion().fromArray(quaternion), [quaternion]);
+    const meshRef = useRef<THREE.Mesh>(null!);
+    const { raycaster, camera, mouse } = useThree();
+    const dragPlane = useMemo(() => new THREE.Plane(), []);
+    const dragOffset = useMemo(() => new THREE.Vector3(), []);
+    const [isDragging, setIsDragging] = useState(false);
 
     const { geometry, freeEdges, interiorEdges, elLabels, bars } = useMemo(() => {
         const vertices: number[] = [];
@@ -182,15 +202,76 @@ export const NastranModelComp: FC<NastranModelCompProps> = ({
         if (visMode === 'hidden') modeVal = 2;
         if (visMode === 'freeedge') modeVal = 3;
         u.uVisMode.value = modeVal;
+        u.uHighlight.value = isSelected ? 1.0 : 0.0;
         return u;
-    }, [color, visMode]);
+    }, [color, visMode, isSelected]);
 
-    const showMesh = visMode !== 'wireframe';
+    const handlePointerDown = (e: ThreeEvent<PointerEvent>) => {
+        if (!visible || isLocked) return;
+        e.stopPropagation();
+        onSelect();
+
+        const controls = (window as any).__G_CONTROLS;
+        if (controls) controls.enabled = false;
+        (e.target as HTMLElement).setPointerCapture(e.pointerId);
+
+        setIsDragging(true);
+        const meshWorldPos = new THREE.Vector3().fromArray(position);
+
+        if (e.shiftKey) {
+            const cameraDir = new THREE.Vector3();
+            camera.getWorldDirection(cameraDir);
+            const planeNormal = new THREE.Vector3(cameraDir.x, 0, cameraDir.z).normalize().negate();
+            dragPlane.setFromNormalAndCoplanarPoint(planeNormal, meshWorldPos);
+        } else {
+            const normal = new THREE.Vector3(0, 1, 0);
+            dragPlane.setFromNormalAndCoplanarPoint(normal, meshWorldPos);
+        }
+
+        const intersectPoint = new THREE.Vector3();
+        raycaster.ray.intersectPlane(dragPlane, intersectPoint);
+        dragOffset.copy(intersectPoint).sub(meshWorldPos);
+    };
+
+    const handlePointerMove = (e: ThreeEvent<PointerEvent>) => {
+        if (!isDragging || isLocked) return;
+        e.stopPropagation();
+
+        const intersectPoint = new THREE.Vector3();
+        raycaster.setFromCamera(mouse, camera);
+        if (raycaster.ray.intersectPlane(dragPlane, intersectPoint)) {
+            const targetWorldPos = intersectPoint.sub(dragOffset);
+            // Optional: round for grid snapping if desired
+            targetWorldPos.x = Math.round(targetWorldPos.x);
+            targetWorldPos.y = Math.round(targetWorldPos.y);
+            targetWorldPos.z = Math.round(targetWorldPos.z);
+            onDrag(id, targetWorldPos);
+        }
+    };
+
+    const handlePointerUp = (e: ThreeEvent<PointerEvent>) => {
+        if (isDragging) {
+            setIsDragging(false);
+            (e.target as HTMLElement).releasePointerCapture(e.pointerId);
+            const controls = (window as any).__G_CONTROLS;
+            if (controls) controls.enabled = true;
+            onDragEnd(id);
+        }
+    };
 
     if (!visible) return null;
 
+    const showMesh = visMode !== 'wireframe';
+
     return (
-        <group position={[0, 0, 0]} quaternion={quatObj} userData={{ isNastran: true }}>
+        <group
+            position={position}
+            quaternion={quatObj}
+            userData={{ isNastran: true, partId: id }}
+            onPointerDown={handlePointerDown}
+            onPointerMove={handlePointerMove}
+            onPointerUp={handlePointerUp}
+        >
             {showMesh && (
                 <mesh key={`nastran - mesh - ${visMode} `} geometry={geometry} castShadow receiveShadow userData={{ isNastran: true }}>
                     <shaderMaterial

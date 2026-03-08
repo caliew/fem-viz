@@ -396,6 +396,26 @@ export default function ProjectRoot() {
         reader.readAsText(file);
     };
 
+    const handleLoadDemo = useCallback(async () => {
+        try {
+            const response = await fetch('./R5610_GLBMDL.bdf');
+            if (!response.ok) throw new Error('Failed to load demo model');
+            const text = await response.text();
+
+            const parser = new NastranParser();
+            setShowFE(true);
+            setShowBlocks(false);
+            const data = parser.parse(text);
+            const id = Math.random().toString(36).substr(2, 9);
+            setElements(prev => [...prev, { id, type: 'nastran', data, color: currentColor, position: [0, 0, 0], rotation: [0, 0, 0, 1] }]);
+            setImportSummary(data.summary);
+            setTimeout(fitCameraToObjects, 100);
+        } catch (error) {
+            console.error('Demo load error:', error);
+            setJoinError('Failed to load demo model');
+        }
+    }, [currentColor, fitCameraToObjects]);
+
 
     const [joinError, setJoinError] = useState<string | null>(null);
 
@@ -610,6 +630,7 @@ export default function ProjectRoot() {
         { label: 'Ungroup', shortcut: 'U', onClick: ungroup },
         { isSeparator: true },
         { label: 'BDF Import', onClick: () => document.getElementById('nastran-input')?.click() },
+        { label: 'Load Demo Model', onClick: handleLoadDemo },
     ];
 
     return (
@@ -646,7 +667,7 @@ export default function ProjectRoot() {
 
                 {elements.map(el => {
                     if (el.type === 'block') return <Part key={el.id} id={el.id} position={el.position} quaternion={el.rotation} color={el.color} visMode={visMode} visible={showBlocks} isSelected={selectedId === el.id} onSelect={() => setSelectedId(el.id)} onDrag={handleDrag} onDragEnd={handleDragEnd} isLocked={isLocked} isDrawing={isDrawing} isJoining={isJoining} onSocketClick={handleSocketClick} selectionInfo={joinSelection} groupId={el.groupId} />;
-                    if (el.type === 'nastran' && el.data) return <NastranModelComp key={el.id} data={el.data} color={el.color} visMode={visMode} showGridIDs={showGridIDs} showElemIDs={showElemIDs} showLoads={showLoads} showSPC={showSPC} visible={showFE} quaternion={el.rotation} />;
+                    if (el.type === 'nastran' && el.data) return <NastranModelComp key={el.id} id={el.id} data={el.data} color={el.color} visMode={visMode} showGridIDs={showGridIDs} showElemIDs={showElemIDs} showLoads={showLoads} showSPC={showSPC} visible={showFE} position={el.position} quaternion={el.rotation} isSelected={selectedId === el.id} onSelect={() => setSelectedId(el.id)} onDrag={handleDrag} onDragEnd={handleDragEnd} isLocked={isLocked} />;
                     if (el.type === 'floorplan' && el.points) return <FloorplanModelComp key={el.id} id={el.id} points={el.points} position={el.position} color={el.color} visMode={visMode} visible={showBlocks} isSelected={selectedId === el.id} onSelect={() => setSelectedId(el.id)} onDrag={handleDrag} onDragEnd={handleDragEnd} isLocked={isLocked} isDrawing={isDrawing} groupId={el.groupId} quaternion={el.rotation} isJoining={isJoining} />;
                     return null;
                 })}
@@ -677,6 +698,7 @@ export default function ProjectRoot() {
                         {isJoining ? 'Cancel' : 'Join (J)'}
                     </button>
                     <button onClick={deletePart} className="btn btn-danger">Del</button>
+                    <button onClick={handleLoadDemo} className="btn btn-accent" title="Load demo BDF model">Demo</button>
                     <button onClick={() => document.getElementById('nastran-input')?.click()} className="btn btn-accent">BDF</button>
                     <input id="nastran-input" type="file" accept=".bdf,.dat" onChange={handleImportNastran} style={{ display: 'none' }} />
                 </div>
