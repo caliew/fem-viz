@@ -77,7 +77,11 @@ export const Part: FC<PartProps> = ({
     const handlePointerDown = (e: ThreeEvent<PointerEvent>) => {
         if (!visible || isLocked || isDrawing || isJoining) return;
         e.stopPropagation();
-        onSelect();
+
+        if (!isSelected) {
+            onSelect();
+            return;
+        }
 
         // Disable OrbitControls while dragging
         const controls = (window as any).__G_CONTROLS;

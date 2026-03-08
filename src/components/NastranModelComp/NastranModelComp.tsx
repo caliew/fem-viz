@@ -58,7 +58,7 @@ export const NastranModelComp: FC<NastranModelCompProps> = ({
     const dragOffset = useMemo(() => new THREE.Vector3(), []);
     const [isDragging, setIsDragging] = useState(false);
 
-    const { geometry, freeEdges, interiorEdges, elLabels, bars } = useMemo(() => {
+    const { geometry, freeEdges, interiorEdges, elLabels, bars, boundingBoxGeo } = useMemo(() => {
         const vertices: number[] = [];
         const indices: number[] = [];
         const stress: number[] = [];
@@ -189,7 +189,41 @@ export const NastranModelComp: FC<NastranModelCompProps> = ({
         const interiorEdgeGeo = new THREE.BufferGeometry();
         interiorEdgeGeo.setAttribute('position', new THREE.Float32BufferAttribute(interiorEdgeVertices, 3));
 
-        return { geometry: geo, freeEdges: freeEdgeGeo, interiorEdges: interiorEdgeGeo, elLabels: labels, bars: barData };
+        // Compute Bounding Box for the entire model
+        const bBox = new THREE.Box3();
+        if (vertices.length > 0) {
+            geo.computeBoundingBox();
+            if (geo.boundingBox) bBox.union(geo.boundingBox);
+        }
+        barData.forEach(bar => {
+            // Very rough approximation for bars, better than nothing
+            bBox.expandByPoint(bar.pos);
+        });
+
+        const boxGeo = new THREE.BufferGeometry();
+        if (!bBox.isEmpty()) {
+            const min = bBox.min;
+            const max = bBox.max;
+            const boxVertices = [
+                min.x, min.y, min.z, max.x, min.y, min.z,
+                max.x, min.y, min.z, max.x, max.y, min.z,
+                max.x, max.y, min.z, min.x, max.y, min.z,
+                min.x, max.y, min.z, min.x, min.y, min.z,
+
+                min.x, min.y, max.z, max.x, min.y, max.z,
+                max.x, min.y, max.z, max.x, max.y, max.z,
+                max.x, max.y, max.z, min.x, max.y, max.z,
+                min.x, max.y, max.z, min.x, min.y, max.z,
+
+                min.x, min.y, min.z, min.x, min.y, max.z,
+                max.x, min.y, min.z, max.x, min.y, max.z,
+                max.x, max.y, min.z, max.x, max.y, max.z,
+                min.x, max.y, min.z, min.x, max.y, max.z
+            ];
+            boxGeo.setAttribute('position', new THREE.Float32BufferAttribute(boxVertices, 3));
+        }
+
+        return { geometry: geo, freeEdges: freeEdgeGeo, interiorEdges: interiorEdgeGeo, elLabels: labels, bars: barData, boundingBoxGeo: boxGeo };
     }, [nodes, elements]);
 
     const uniforms = useMemo(() => {
@@ -209,7 +243,11 @@ export const NastranModelComp: FC<NastranModelCompProps> = ({
     const handlePointerDown = (e: ThreeEvent<PointerEvent>) => {
         if (!visible || isLocked) return;
         e.stopPropagation();
-        onSelect();
+
+        if (!isSelected) {
+            onSelect();
+            return;
+        }
 
         const controls = (window as any).__G_CONTROLS;
         if (controls) controls.enabled = false;
@@ -307,7 +345,13 @@ export const NastranModelComp: FC<NastranModelCompProps> = ({
             ))}
 
             <lineSegments geometry={freeEdges} userData={{ isNastran: true }}>
-                <lineBasicMaterial color="white" opacity={0.8} depthTest={true} transparent />
+                <lineBasicMaterial
+                    color={isSelected ? "#00ff00" : "white"}
+                    opacity={isSelected ? 1.0 : 0.8}
+                    depthTest={true}
+                    transparent
+                    linewidth={isSelected ? 2 : 1}
+                />
             </lineSegments>
 
             <lineSegments geometry={interiorEdges} userData={{ isNastran: true }}>
@@ -358,6 +402,12 @@ export const NastranModelComp: FC<NastranModelCompProps> = ({
                     </mesh>
                 );
             })}
+
+            {isSelected && (
+                <lineSegments geometry={boundingBoxGeo}>
+                    <lineBasicMaterial color="#00ff00" transparent opacity={0.5} linewidth={1} />
+                </lineSegments>
+            )}
         </group>
     );
 };

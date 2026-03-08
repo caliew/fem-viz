@@ -665,12 +665,84 @@ export default function ProjectRoot() {
                     setShowFE(false);
                 }} onCancel={() => setIsDrawing(false)} />}
 
-                {elements.map(el => {
-                    if (el.type === 'block') return <Part key={el.id} id={el.id} position={el.position} quaternion={el.rotation} color={el.color} visMode={visMode} visible={showBlocks} isSelected={selectedId === el.id} onSelect={() => setSelectedId(el.id)} onDrag={handleDrag} onDragEnd={handleDragEnd} isLocked={isLocked} isDrawing={isDrawing} isJoining={isJoining} onSocketClick={handleSocketClick} selectionInfo={joinSelection} groupId={el.groupId} />;
-                    if (el.type === 'nastran' && el.data) return <NastranModelComp key={el.id} id={el.id} data={el.data} color={el.color} visMode={visMode} showGridIDs={showGridIDs} showElemIDs={showElemIDs} showLoads={showLoads} showSPC={showSPC} visible={showFE} position={el.position} quaternion={el.rotation} isSelected={selectedId === el.id} onSelect={() => setSelectedId(el.id)} onDrag={handleDrag} onDragEnd={handleDragEnd} isLocked={isLocked} />;
-                    if (el.type === 'floorplan' && el.points) return <FloorplanModelComp key={el.id} id={el.id} points={el.points} position={el.position} color={el.color} visMode={visMode} visible={showBlocks} isSelected={selectedId === el.id} onSelect={() => setSelectedId(el.id)} onDrag={handleDrag} onDragEnd={handleDragEnd} isLocked={isLocked} isDrawing={isDrawing} groupId={el.groupId} quaternion={el.rotation} isJoining={isJoining} />;
-                    return null;
-                })}
+                {(() => {
+                    const selectedEl = elements.find(el => el.id === selectedId);
+                    const selectedGroupId = selectedEl?.groupId;
+
+                    return elements.map(el => {
+                        const isSelected = el.id === selectedId || (selectedGroupId && el.groupId === selectedGroupId);
+
+                        if (el.type === 'block') {
+                            return (
+                                <Part
+                                    key={el.id}
+                                    id={el.id}
+                                    position={el.position}
+                                    quaternion={el.rotation}
+                                    color={el.color}
+                                    visMode={visMode}
+                                    visible={showBlocks}
+                                    isSelected={!!isSelected}
+                                    onSelect={() => setSelectedId(el.id)}
+                                    onDrag={handleDrag}
+                                    onDragEnd={handleDragEnd}
+                                    isLocked={isLocked}
+                                    isDrawing={isDrawing}
+                                    isJoining={isJoining}
+                                    onSocketClick={handleSocketClick}
+                                    selectionInfo={joinSelection}
+                                    groupId={el.groupId}
+                                />
+                            );
+                        }
+                        if (el.type === 'nastran' && el.data) {
+                            return (
+                                <NastranModelComp
+                                    key={el.id}
+                                    id={el.id}
+                                    data={el.data}
+                                    color={el.color}
+                                    visMode={visMode}
+                                    showGridIDs={showGridIDs}
+                                    showElemIDs={showElemIDs}
+                                    showLoads={showLoads}
+                                    showSPC={showSPC}
+                                    visible={showFE}
+                                    position={el.position}
+                                    quaternion={el.rotation}
+                                    isSelected={!!isSelected}
+                                    onSelect={() => setSelectedId(el.id)}
+                                    onDrag={handleDrag}
+                                    onDragEnd={handleDragEnd}
+                                    isLocked={isLocked}
+                                />
+                            );
+                        }
+                        if (el.type === 'floorplan' && el.points) {
+                            return (
+                                <FloorplanModelComp
+                                    key={el.id}
+                                    id={el.id}
+                                    points={el.points}
+                                    position={el.position}
+                                    color={el.color}
+                                    visMode={visMode}
+                                    visible={showBlocks}
+                                    isSelected={!!isSelected}
+                                    onSelect={() => setSelectedId(el.id)}
+                                    onDrag={handleDrag}
+                                    onDragEnd={handleDragEnd}
+                                    isLocked={isLocked}
+                                    isDrawing={isDrawing}
+                                    groupId={el.groupId}
+                                    quaternion={el.rotation}
+                                    isJoining={isJoining}
+                                />
+                            );
+                        }
+                        return null;
+                    });
+                })()}
             </Canvas>
 
             <div className="ui-overlay">
