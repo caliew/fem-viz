@@ -404,7 +404,7 @@ export default function ProjectRoot() {
 
     const handleLoadDemo = useCallback(async () => {
         try {
-            const response = await fetch('./R5610_GLBMDL.bdf');
+            const response = await fetch('/R5610_GLBMDL.bdf');
             if (!response.ok) throw new Error('Failed to load demo model');
             const text = await response.text();
 
