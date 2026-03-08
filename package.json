@@ -1,7 +1,7 @@
 {
   "name": "fem-viz",
   "version": "1.0.0",
-  "description": "",
+  "description": "FE Viz (OOPS/LEGO Approach)",
   "main": "index.js",
   "scripts": {
     "dev": "vite",
