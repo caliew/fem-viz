@@ -37,6 +37,8 @@ export default function ProjectRoot() {
     const [isJoining, setIsJoining] = useState(false);
     const [joinSelection, setJoinSelection] = useState<{ partId: string, socketIndex: number } | null>(null);
     const [currentColor, setCurrentColor] = useState(0xef4444);
+    const [isEditMode, setIsEditMode] = useState(false);
+    const [showHelp, setShowHelp] = useState(false);
 
     const [showGridIDs, setShowGridIDs] = useState(false);
     const [showElemIDs, setShowElemIDs] = useState(false);
@@ -355,12 +357,16 @@ export default function ProjectRoot() {
             }
             if (key === 'r') (window as any).__G_ROTATE_MODE = !(window as any).__G_ROTATE_MODE;
             if (key === 'u') ungroup();
+            if (key === 'm') setIsEditMode(prev => !prev);
+            if (key === '?' || key === '/') setShowHelp(prev => !prev);
             if (key === 'escape') {
                 setIsDrawing(false);
                 setIsJoining(false);
                 setJoinSelection(null);
                 setMenuVisible(false);
                 setSelectedId(null);
+                setIsEditMode(false);
+                setShowHelp(false);
             }
 
             if (key === 'c') setVisMode('contour');
@@ -370,7 +376,7 @@ export default function ProjectRoot() {
             if (key === 'w') setVisMode('wireframe');
             if (key === 'b') setShowBlocks(prev => !prev);
 
-            if ((window as any).__G_ROTATE_MODE && (key === 'x' || key === 'y' || key === 'z')) {
+            if ((window as any).__G_ROTATE_MODE && (key === 'x' || key === 'y' || key === 'z') && e.shiftKey) {
                 rotateSelected(key as 'x' | 'y' | 'z');
             }
             if (palette[key]) changeColor(palette[key]);
@@ -395,6 +401,26 @@ export default function ProjectRoot() {
         };
         reader.readAsText(file);
     };
+
+    const handleLoadDemo = useCallback(async () => {
+        try {
+            const response = await fetch('/R5610_GLBMDL.bdf');
+            if (!response.ok) throw new Error('Failed to load demo model');
+            const text = await response.text();
+
+            const parser = new NastranParser();
+            setShowFE(true);
+            setShowBlocks(false);
+            const data = parser.parse(text);
+            const id = Math.random().toString(36).substr(2, 9);
+            setElements(prev => [...prev, { id, type: 'nastran', data, color: currentColor, position: [0, 0, 0], rotation: [0, 0, 0, 1] }]);
+            setImportSummary(data.summary);
+            setTimeout(fitCameraToObjects, 100);
+        } catch (error) {
+            console.error('Demo load error:', error);
+            setJoinError('Failed to load demo model');
+        }
+    }, [currentColor, fitCameraToObjects]);
 
 
     const [joinError, setJoinError] = useState<string | null>(null);
@@ -578,6 +604,11 @@ export default function ProjectRoot() {
     };
 
     const menuItems = [
+        { label: 'Help', shortcut: '?', onClick: () => setShowHelp(true) },
+        { isSeparator: true },
+        { label: 'View Mode', shortcut: 'M/V', checked: !isEditMode, onClick: () => setIsEditMode(false) },
+        { label: 'Edit Mode', shortcut: 'M/E', checked: isEditMode, onClick: () => setIsEditMode(true) },
+        { isSeparator: true },
         {
             label: 'LEGO & PLOT',
             checked: showBlocks && !showFE,
@@ -610,6 +641,7 @@ export default function ProjectRoot() {
         { label: 'Ungroup', shortcut: 'U', onClick: ungroup },
         { isSeparator: true },
         { label: 'BDF Import', onClick: () => document.getElementById('nastran-input')?.click() },
+        { label: 'Load Demo Model', onClick: handleLoadDemo },
     ];
 
     return (
@@ -644,28 +676,109 @@ export default function ProjectRoot() {
                     setShowFE(false);
                 }} onCancel={() => setIsDrawing(false)} />}
 
-                {elements.map(el => {
-                    if (el.type === 'block') return <Part key={el.id} id={el.id} position={el.position} quaternion={el.rotation} color={el.color} visMode={visMode} visible={showBlocks} isSelected={selectedId === el.id} onSelect={() => setSelectedId(el.id)} onDrag={handleDrag} onDragEnd={handleDragEnd} isLocked={isLocked} isDrawing={isDrawing} isJoining={isJoining} onSocketClick={handleSocketClick} selectionInfo={joinSelection} groupId={el.groupId} />;
-                    if (el.type === 'nastran' && el.data) return <NastranModelComp key={el.id} data={el.data} color={el.color} visMode={visMode} showGridIDs={showGridIDs} showElemIDs={showElemIDs} showLoads={showLoads} showSPC={showSPC} visible={showFE} quaternion={el.rotation} />;
-                    if (el.type === 'floorplan' && el.points) return <FloorplanModelComp key={el.id} id={el.id} points={el.points} position={el.position} color={el.color} visMode={visMode} visible={showBlocks} isSelected={selectedId === el.id} onSelect={() => setSelectedId(el.id)} onDrag={handleDrag} onDragEnd={handleDragEnd} isLocked={isLocked} isDrawing={isDrawing} groupId={el.groupId} quaternion={el.rotation} isJoining={isJoining} />;
-                    return null;
-                })}
+                {(() => {
+                    const selectedEl = elements.find(el => el.id === selectedId);
+                    const selectedGroupId = selectedEl?.groupId;
+
+                    return elements.map(el => {
+                        const isSelected = el.id === selectedId || (selectedGroupId && el.groupId === selectedGroupId);
+
+                        if (el.type === 'block') {
+                            return (
+                                <Part
+                                    key={el.id}
+                                    id={el.id}
+                                    position={el.position}
+                                    quaternion={el.rotation}
+                                    color={el.color}
+                                    visMode={visMode}
+                                    visible={showBlocks}
+                                    isSelected={!!isSelected}
+                                    onSelect={() => setSelectedId(el.id)}
+                                    onDrag={handleDrag}
+                                    onDragEnd={handleDragEnd}
+                                    isLocked={isLocked}
+                                    isDrawing={isDrawing}
+                                    isJoining={isJoining}
+                                    onSocketClick={handleSocketClick}
+                                    selectionInfo={joinSelection}
+                                    groupId={el.groupId}
+                                    isEditMode={isEditMode}
+                                />
+                            );
+                        }
+                        if (el.type === 'nastran' && el.data) {
+                            return (
+                                <NastranModelComp
+                                    key={el.id}
+                                    id={el.id}
+                                    data={el.data}
+                                    color={el.color}
+                                    visMode={visMode}
+                                    showGridIDs={showGridIDs}
+                                    showElemIDs={showElemIDs}
+                                    showLoads={showLoads}
+                                    showSPC={showSPC}
+                                    visible={showFE}
+                                    position={el.position}
+                                    quaternion={el.rotation}
+                                    isSelected={!!isSelected}
+                                    onSelect={() => setSelectedId(el.id)}
+                                    onDrag={handleDrag}
+                                    onDragEnd={handleDragEnd}
+                                    isLocked={isLocked}
+                                    isEditMode={isEditMode}
+                                />
+                            );
+                        }
+                        if (el.type === 'floorplan' && el.points) {
+                            return (
+                                <FloorplanModelComp
+                                    key={el.id}
+                                    id={el.id}
+                                    points={el.points}
+                                    position={el.position}
+                                    color={el.color}
+                                    visMode={visMode}
+                                    visible={showBlocks}
+                                    isSelected={!!isSelected}
+                                    onSelect={() => setSelectedId(el.id)}
+                                    onDrag={handleDrag}
+                                    onDragEnd={handleDragEnd}
+                                    isLocked={isLocked}
+                                    isDrawing={isDrawing}
+                                    groupId={el.groupId}
+                                    quaternion={el.rotation}
+                                    isJoining={isJoining}
+                                    isEditMode={isEditMode}
+                                />
+                            );
+                        }
+                        return null;
+                    });
+                })()}
             </Canvas>
 
             <div className="ui-overlay">
                 <h1 className="ui-title">Lego FEM Viz (R3F)</h1>
+                <button className="help-trigger" onClick={() => setShowHelp(true)} title="Show Help">?</button>
                 <div className="status-bar">
-                    Status: <span className="status-tag" style={{ color: isLocked ? '#ef4444' : '#22c55e' }}>{isLocked ? 'LOCKED' : 'UNLOCKED'}</span> |
-                    Mode: <span className="status-tag" style={{ color: '#6366f1' }}>{visMode}</span>
-                    {isJoining && (
-                        <> | <span className="status-tag" style={{ color: '#f59e0b' }}>JOINING: {joinSelection ? 'Select Moving Face' : 'Select Fixed Face'}</span></>
-                    )}
-                    {joinError && (
-                        <> | <span className="status-tag" style={{ color: '#ef4444' }}>ERROR: {joinError}</span></>
-                    )}
+                    <div className="status-row">
+                        Status: <span className="status-tag" style={{ color: isLocked ? '#ef4444' : '#22c55e' }}>{isLocked ? 'LOCKED' : 'UNLOCKED'}</span> |
+                        Mode: <span className="status-tag" style={{ color: '#6366f1' }}>{visMode}</span>
+                    </div>
+                    <div className="status-row">
+                        Interaction: <span className="status-tag" style={{ color: isEditMode ? '#f59e0b' : '#3b82f6' }}>{isEditMode ? 'EDIT' : 'VIEW'}</span>
+                        {isJoining && (
+                            <> | <span className="status-tag" style={{ color: '#f59e0b' }}>JOINING: {joinSelection ? 'Select Moving Face' : 'Select Fixed Face'}</span></>
+                        )}
+                        {joinError && (
+                            <> | <span className="status-tag" style={{ color: '#ef4444' }}>ERROR: {joinError}</span></>
+                        )}
+                    </div>
                 </div>
                 <div className="keybind-hint">
-                    <b>L</b>: Lock | <b>W</b>: Wire | <b>E</b>: FreeEdge | <b>H</b>: Hidden | <b>S</b>: Shaded | <b>C</b>: Contour | <b>F</b>: Fit | <b>J</b>: Join
+                    <b>M</b>: Toggle Mode | <b>L</b>: Lock | <b>E</b>: FreeEdge | <b>W</b>: Wire | <b>H</b>: Hidden | <b>S</b>: Shaded | <b>C</b>: Contour | <b>F</b>: Fit | <b>J</b>: Join
                 </div>
 
                 <div className="controls-group">
@@ -677,6 +790,7 @@ export default function ProjectRoot() {
                         {isJoining ? 'Cancel' : 'Join (J)'}
                     </button>
                     <button onClick={deletePart} className="btn btn-danger">Del</button>
+                    <button onClick={handleLoadDemo} className="btn btn-accent" title="Load demo BDF model">Demo</button>
                     <button onClick={() => document.getElementById('nastran-input')?.click()} className="btn btn-accent">BDF</button>
                     <input id="nastran-input" type="file" accept=".bdf,.dat" onChange={handleImportNastran} style={{ display: 'none' }} />
                 </div>
@@ -737,6 +851,60 @@ export default function ProjectRoot() {
                     ))}
                 </div>
             </div>
+
+            {showHelp && (
+                <div className="help-modal" onClick={() => setShowHelp(false)}>
+                    <div className="help-content" onClick={e => e.stopPropagation()}>
+                        <div className="help-header">
+                            <h2>User Guide</h2>
+                            <button className="close-help" onClick={() => setShowHelp(false)}>×</button>
+                        </div>
+
+                        <div className="help-section">
+                            <h3>Navigation</h3>
+                            <div className="help-grid">
+                                <span className="help-key">LMB</span> <span className="help-desc">Rotate Camera (View Mode)</span>
+                                <span className="help-key">RMB</span> <span className="help-desc">Pan Camera</span>
+                                <span className="help-key">Wheel</span> <span className="help-desc">Zoom In/Out</span>
+                                <span className="help-key">F</span> <span className="help-desc">Fit View to Objects</span>
+                            </div>
+                        </div>
+
+                        <div className="help-section">
+                            <h3>Interaction Modes</h3>
+                            <div className="help-grid">
+                                <span className="help-key">M</span> <span className="help-desc">Toggle between <b>VIEW</b> and <b>EDIT</b> mode</span>
+                                <span className="help-desc" style={{ gridColumn: '2' }}>
+                                    • <b>VIEW</b> (Blue): Safe camera rotation, no accidental moves.<br />
+                                    • <b>EDIT</b> (Amber): Select and Drag parts (2-click safety).
+                                </span>
+                            </div>
+                        </div>
+
+                        <div className="help-section">
+                            <h3>Editing & Building</h3>
+                            <div className="help-grid">
+                                <span className="help-key">A</span> <span className="help-desc">Add new Lego block</span>
+                                <span className="help-key">P</span> <span className="help-desc">Draw Floorplan (Click points, P/Cancel to finish)</span>
+                                <span className="help-key">J</span> <span className="help-desc">Join Mode (Click two sockets to snap together)</span>
+                                <span className="help-key">U</span> <span className="help-desc">Ungroup selected assembly</span>
+                                <span className="help-key">Del</span> <span className="help-desc">Delete selected part</span>
+                                <span className="help-key">R</span> <span className="help-desc">Toggle Rotation Mode (Shift+X/Y/Z to rotate axis)</span>
+                            </div>
+                        </div>
+
+                        <div className="help-section">
+                            <h3>Visualization</h3>
+                            <div className="help-grid">
+                                <span className="help-key">S / C</span> <span className="help-desc">Shaded / Stress Contour</span>
+                                <span className="help-key">H / W</span> <span className="help-desc">Hidden Line / Wireframe</span>
+                                <span className="help-key">E</span> <span className="help-desc">Free Edge Highlight</span>
+                                <span className="help-key">L</span> <span className="help-desc">Lock/Unlock model modification</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

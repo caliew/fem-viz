@@ -21,6 +21,7 @@ interface PartProps {
     onSocketClick?: (partId: string, socketIndex: number) => void;
     selectionInfo?: { partId: string, socketIndex: number } | null;
     groupId?: string;
+    isEditMode: boolean;
 }
 
 export const Part: FC<PartProps> = ({
@@ -39,7 +40,8 @@ export const Part: FC<PartProps> = ({
     isJoining,
     onSocketClick,
     selectionInfo,
-    groupId
+    groupId,
+    isEditMode
 }) => {
     const geometry = useMemo(() => {
         const geo = new THREE.BoxGeometry(1, 1, 1);
@@ -75,9 +77,13 @@ export const Part: FC<PartProps> = ({
     }, [color, visMode, isSelected, uniforms]);
 
     const handlePointerDown = (e: ThreeEvent<PointerEvent>) => {
-        if (!visible || isLocked || isDrawing || isJoining) return;
+        if (!visible || isLocked || isDrawing || isJoining || !isEditMode) return;
         e.stopPropagation();
-        onSelect();
+
+        if (!isSelected) {
+            onSelect();
+            return;
+        }
 
         // Disable OrbitControls while dragging
         const controls = (window as any).__G_CONTROLS;

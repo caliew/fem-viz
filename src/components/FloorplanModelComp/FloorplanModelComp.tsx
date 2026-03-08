@@ -20,6 +20,7 @@ interface FloorplanModelCompProps {
     groupId?: string;
     quaternion: [number, number, number, number];
     isJoining?: boolean;
+    isEditMode: boolean;
 }
 
 export const FloorplanModelComp: FC<FloorplanModelCompProps> = ({
@@ -37,7 +38,8 @@ export const FloorplanModelComp: FC<FloorplanModelCompProps> = ({
     isDrawing,
     groupId,
     quaternion,
-    isJoining
+    isJoining,
+    isEditMode
 }) => {
     const meshRef = useRef<THREE.Mesh>(null!);
     const { raycaster, camera, mouse } = useThree();
@@ -87,9 +89,13 @@ export const FloorplanModelComp: FC<FloorplanModelCompProps> = ({
     const showMesh = visMode !== 'wireframe';
 
     const handlePointerDown = (e: ThreeEvent<PointerEvent>) => {
-        if (!visible || isLocked || isDrawing || isJoining) return;
+        if (!visible || isLocked || isDrawing || isJoining || !isEditMode) return;
         e.stopPropagation();
-        onSelect();
+
+        if (!isSelected) {
+            onSelect();
+            return;
+        }
 
         // Disable OrbitControls while dragging
         const controls = (window as any).__G_CONTROLS;
