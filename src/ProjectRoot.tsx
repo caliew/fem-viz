@@ -38,6 +38,7 @@ export default function ProjectRoot() {
     const [joinSelection, setJoinSelection] = useState<{ partId: string, socketIndex: number } | null>(null);
     const [currentColor, setCurrentColor] = useState(0xef4444);
     const [isEditMode, setIsEditMode] = useState(false);
+    const [showHelp, setShowHelp] = useState(false);
 
     const [showGridIDs, setShowGridIDs] = useState(false);
     const [showElemIDs, setShowElemIDs] = useState(false);
@@ -357,6 +358,7 @@ export default function ProjectRoot() {
             if (key === 'r') (window as any).__G_ROTATE_MODE = !(window as any).__G_ROTATE_MODE;
             if (key === 'u') ungroup();
             if (key === 'm') setIsEditMode(prev => !prev);
+            if (key === '?' || key === '/') setShowHelp(prev => !prev);
             if (key === 'escape') {
                 setIsDrawing(false);
                 setIsJoining(false);
@@ -364,6 +366,7 @@ export default function ProjectRoot() {
                 setMenuVisible(false);
                 setSelectedId(null);
                 setIsEditMode(false);
+                setShowHelp(false);
             }
 
             if (key === 'c') setVisMode('contour');
@@ -601,6 +604,8 @@ export default function ProjectRoot() {
     };
 
     const menuItems = [
+        { label: 'Help', shortcut: '?', onClick: () => setShowHelp(true) },
+        { isSeparator: true },
         { label: 'View Mode', shortcut: 'M/V', checked: !isEditMode, onClick: () => setIsEditMode(false) },
         { label: 'Edit Mode', shortcut: 'M/E', checked: isEditMode, onClick: () => setIsEditMode(true) },
         { isSeparator: true },
@@ -756,6 +761,7 @@ export default function ProjectRoot() {
 
             <div className="ui-overlay">
                 <h1 className="ui-title">Lego FEM Viz (R3F)</h1>
+                <button className="help-trigger" onClick={() => setShowHelp(true)} title="Show Help">?</button>
                 <div className="status-bar">
                     <div className="status-row">
                         Status: <span className="status-tag" style={{ color: isLocked ? '#ef4444' : '#22c55e' }}>{isLocked ? 'LOCKED' : 'UNLOCKED'}</span> |
@@ -845,6 +851,60 @@ export default function ProjectRoot() {
                     ))}
                 </div>
             </div>
+
+            {showHelp && (
+                <div className="help-modal" onClick={() => setShowHelp(false)}>
+                    <div className="help-content" onClick={e => e.stopPropagation()}>
+                        <div className="help-header">
+                            <h2>User Guide</h2>
+                            <button className="close-help" onClick={() => setShowHelp(false)}>×</button>
+                        </div>
+
+                        <div className="help-section">
+                            <h3>Navigation</h3>
+                            <div className="help-grid">
+                                <span className="help-key">LMB</span> <span className="help-desc">Rotate Camera (View Mode)</span>
+                                <span className="help-key">RMB</span> <span className="help-desc">Pan Camera</span>
+                                <span className="help-key">Wheel</span> <span className="help-desc">Zoom In/Out</span>
+                                <span className="help-key">F</span> <span className="help-desc">Fit View to Objects</span>
+                            </div>
+                        </div>
+
+                        <div className="help-section">
+                            <h3>Interaction Modes</h3>
+                            <div className="help-grid">
+                                <span className="help-key">M</span> <span className="help-desc">Toggle between <b>VIEW</b> and <b>EDIT</b> mode</span>
+                                <span className="help-desc" style={{ gridColumn: '2' }}>
+                                    • <b>VIEW</b> (Blue): Safe camera rotation, no accidental moves.<br />
+                                    • <b>EDIT</b> (Amber): Select and Drag parts (2-click safety).
+                                </span>
+                            </div>
+                        </div>
+
+                        <div className="help-section">
+                            <h3>Editing & Building</h3>
+                            <div className="help-grid">
+                                <span className="help-key">A</span> <span className="help-desc">Add new Lego block</span>
+                                <span className="help-key">P</span> <span className="help-desc">Draw Floorplan (Click points, P/Cancel to finish)</span>
+                                <span className="help-key">J</span> <span className="help-desc">Join Mode (Click two sockets to snap together)</span>
+                                <span className="help-key">U</span> <span className="help-desc">Ungroup selected assembly</span>
+                                <span className="help-key">Del</span> <span className="help-desc">Delete selected part</span>
+                                <span className="help-key">R</span> <span className="help-desc">Toggle Rotation Mode (Shift+X/Y/Z to rotate axis)</span>
+                            </div>
+                        </div>
+
+                        <div className="help-section">
+                            <h3>Visualization</h3>
+                            <div className="help-grid">
+                                <span className="help-key">S / C</span> <span className="help-desc">Shaded / Stress Contour</span>
+                                <span className="help-key">H / W</span> <span className="help-desc">Hidden Line / Wireframe</span>
+                                <span className="help-key">E</span> <span className="help-desc">Free Edge Highlight</span>
+                                <span className="help-key">L</span> <span className="help-desc">Lock/Unlock model modification</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
