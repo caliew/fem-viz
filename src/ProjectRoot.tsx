@@ -37,6 +37,7 @@ export default function ProjectRoot() {
     const [isJoining, setIsJoining] = useState(false);
     const [joinSelection, setJoinSelection] = useState<{ partId: string, socketIndex: number } | null>(null);
     const [currentColor, setCurrentColor] = useState(0xef4444);
+    const [isEditMode, setIsEditMode] = useState(false);
 
     const [showGridIDs, setShowGridIDs] = useState(false);
     const [showElemIDs, setShowElemIDs] = useState(false);
@@ -355,12 +356,14 @@ export default function ProjectRoot() {
             }
             if (key === 'r') (window as any).__G_ROTATE_MODE = !(window as any).__G_ROTATE_MODE;
             if (key === 'u') ungroup();
+            if (key === 'm') setIsEditMode(prev => !prev);
             if (key === 'escape') {
                 setIsDrawing(false);
                 setIsJoining(false);
                 setJoinSelection(null);
                 setMenuVisible(false);
                 setSelectedId(null);
+                setIsEditMode(false);
             }
 
             if (key === 'c') setVisMode('contour');
@@ -370,7 +373,7 @@ export default function ProjectRoot() {
             if (key === 'w') setVisMode('wireframe');
             if (key === 'b') setShowBlocks(prev => !prev);
 
-            if ((window as any).__G_ROTATE_MODE && (key === 'x' || key === 'y' || key === 'z')) {
+            if ((window as any).__G_ROTATE_MODE && (key === 'x' || key === 'y' || key === 'z') && e.shiftKey) {
                 rotateSelected(key as 'x' | 'y' | 'z');
             }
             if (palette[key]) changeColor(palette[key]);
@@ -598,6 +601,9 @@ export default function ProjectRoot() {
     };
 
     const menuItems = [
+        { label: 'View Mode', shortcut: 'M/V', checked: !isEditMode, onClick: () => setIsEditMode(false) },
+        { label: 'Edit Mode', shortcut: 'M/E', checked: isEditMode, onClick: () => setIsEditMode(true) },
+        { isSeparator: true },
         {
             label: 'LEGO & PLOT',
             checked: showBlocks && !showFE,
@@ -692,6 +698,7 @@ export default function ProjectRoot() {
                                     onSocketClick={handleSocketClick}
                                     selectionInfo={joinSelection}
                                     groupId={el.groupId}
+                                    isEditMode={isEditMode}
                                 />
                             );
                         }
@@ -715,6 +722,7 @@ export default function ProjectRoot() {
                                     onDrag={handleDrag}
                                     onDragEnd={handleDragEnd}
                                     isLocked={isLocked}
+                                    isEditMode={isEditMode}
                                 />
                             );
                         }
@@ -737,6 +745,7 @@ export default function ProjectRoot() {
                                     groupId={el.groupId}
                                     quaternion={el.rotation}
                                     isJoining={isJoining}
+                                    isEditMode={isEditMode}
                                 />
                             );
                         }
@@ -748,17 +757,22 @@ export default function ProjectRoot() {
             <div className="ui-overlay">
                 <h1 className="ui-title">Lego FEM Viz (R3F)</h1>
                 <div className="status-bar">
-                    Status: <span className="status-tag" style={{ color: isLocked ? '#ef4444' : '#22c55e' }}>{isLocked ? 'LOCKED' : 'UNLOCKED'}</span> |
-                    Mode: <span className="status-tag" style={{ color: '#6366f1' }}>{visMode}</span>
-                    {isJoining && (
-                        <> | <span className="status-tag" style={{ color: '#f59e0b' }}>JOINING: {joinSelection ? 'Select Moving Face' : 'Select Fixed Face'}</span></>
-                    )}
-                    {joinError && (
-                        <> | <span className="status-tag" style={{ color: '#ef4444' }}>ERROR: {joinError}</span></>
-                    )}
+                    <div className="status-row">
+                        Status: <span className="status-tag" style={{ color: isLocked ? '#ef4444' : '#22c55e' }}>{isLocked ? 'LOCKED' : 'UNLOCKED'}</span> |
+                        Mode: <span className="status-tag" style={{ color: '#6366f1' }}>{visMode}</span>
+                    </div>
+                    <div className="status-row">
+                        Interaction: <span className="status-tag" style={{ color: isEditMode ? '#f59e0b' : '#3b82f6' }}>{isEditMode ? 'EDIT' : 'VIEW'}</span>
+                        {isJoining && (
+                            <> | <span className="status-tag" style={{ color: '#f59e0b' }}>JOINING: {joinSelection ? 'Select Moving Face' : 'Select Fixed Face'}</span></>
+                        )}
+                        {joinError && (
+                            <> | <span className="status-tag" style={{ color: '#ef4444' }}>ERROR: {joinError}</span></>
+                        )}
+                    </div>
                 </div>
                 <div className="keybind-hint">
-                    <b>L</b>: Lock | <b>W</b>: Wire | <b>E</b>: FreeEdge | <b>H</b>: Hidden | <b>S</b>: Shaded | <b>C</b>: Contour | <b>F</b>: Fit | <b>J</b>: Join
+                    <b>M</b>: Toggle Mode | <b>L</b>: Lock | <b>E</b>: FreeEdge | <b>W</b>: Wire | <b>H</b>: Hidden | <b>S</b>: Shaded | <b>C</b>: Contour | <b>F</b>: Fit | <b>J</b>: Join
                 </div>
 
                 <div className="controls-group">

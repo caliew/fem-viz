@@ -22,6 +22,7 @@ interface NastranModelCompProps {
     onDrag: (id: string, targetWorldPos: THREE.Vector3) => void;
     onDragEnd: (id: string) => void;
     isLocked: boolean;
+    isEditMode: boolean;
 }
 
 interface BarData {
@@ -48,7 +49,8 @@ export const NastranModelComp: FC<NastranModelCompProps> = ({
     onSelect,
     onDrag,
     onDragEnd,
-    isLocked
+    isLocked,
+    isEditMode
 }) => {
     const { nodes, elements, loads, constraints } = data;
     const quatObj = useMemo(() => new THREE.Quaternion().fromArray(quaternion), [quaternion]);
@@ -241,7 +243,7 @@ export const NastranModelComp: FC<NastranModelCompProps> = ({
     }, [color, visMode, isSelected]);
 
     const handlePointerDown = (e: ThreeEvent<PointerEvent>) => {
-        if (!visible || isLocked) return;
+        if (!visible || isLocked || !isEditMode) return;
         e.stopPropagation();
 
         if (!isSelected) {

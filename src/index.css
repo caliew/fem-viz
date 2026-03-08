@@ -51,6 +51,12 @@ body {
     font-size: 1.0rem;
     font-weight: 600;
     display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.status-row {
+    display: flex;
     gap: 8px;
     align-items: center;
 }
