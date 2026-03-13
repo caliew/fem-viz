@@ -37,6 +37,9 @@ export default function ProjectRoot() {
     const [isJoining, setIsJoining] = useState(false);
     const [joinSelection, setJoinSelection] = useState<{ partId: string, socketIndex: number } | null>(null);
     const [currentColor, setCurrentColor] = useState(0xef4444);
+    const [past, setPast] = useState<SceneElement[][]>([]);
+    const [future, setFuture] = useState<SceneElement[][]>([]);
+
     const [isEditMode, setIsEditMode] = useState(false);
     const [showHelp, setShowHelp] = useState(false);
 
@@ -80,7 +83,35 @@ export default function ProjectRoot() {
         '7': 0xf97316, '8': 0xec4899, '9': 0xffffff
     };
 
+    const pushToHistory = useCallback((currentElements: SceneElement[]) => {
+        setPast(prev => [...prev, currentElements]);
+        setFuture([]);
+    }, []);
+
+    const undo = useCallback(() => {
+        if (past.length === 0) return;
+        setPast(prev => {
+            const last = prev[prev.length - 1];
+            const newPast = prev.slice(0, -1);
+            setFuture(f => [elements, ...f]);
+            setElements(last);
+            return newPast;
+        });
+    }, [past, elements]);
+
+    const redo = useCallback(() => {
+        if (future.length === 0) return;
+        setFuture(prev => {
+            const next = prev[0];
+            const newFuture = prev.slice(1);
+            setPast(p => [...p, elements]);
+            setElements(next);
+            return newFuture;
+        });
+    }, [future, elements]);
+
     const addPart = useCallback(() => {
+        pushToHistory(elements);
         const id = Math.random().toString(36).substr(2, 9);
         const newPart: SceneElement = {
             id,
@@ -90,16 +121,18 @@ export default function ProjectRoot() {
             color: currentColor
         };
         setElements(prev => [...prev, newPart]);
-    }, [currentColor]);
+    }, [currentColor, elements, pushToHistory]);
 
     const deletePart = useCallback(() => {
         if (!selectedId) return;
+        pushToHistory(elements);
         setElements(prev => prev.filter(p => p.id !== selectedId));
         setSelectedId(null);
-    }, [selectedId]);
+    }, [selectedId, elements, pushToHistory]);
 
     const rotateSelected = useCallback((axis: 'x' | 'y' | 'z') => {
         if (!selectedId || isLocked) return;
+        pushToHistory(elements);
         setElements(prev => prev.map(el => {
             if (el.id === selectedId) {
                 const quat = new THREE.Quaternion().fromArray(el.rotation || [0, 0, 0, 1]);
@@ -112,17 +145,19 @@ export default function ProjectRoot() {
             }
             return el;
         }));
-    }, [selectedId, isLocked]);
+    }, [selectedId, isLocked, elements, pushToHistory]);
 
     const changeColor = useCallback((color: number) => {
         setCurrentColor(color);
         if (selectedId) {
+            pushToHistory(elements);
             setElements(prev => prev.map(el => el.id === selectedId ? { ...el, color } : el));
         }
-    }, [selectedId]);
+    }, [selectedId, elements, pushToHistory]);
 
     const ungroup = useCallback(() => {
         if (!selectedId) return;
+        pushToHistory(elements);
         setElements(prev => {
             const selected = prev.find(e => e.id === selectedId);
             if (!selected || !selected.groupId) return prev;
@@ -135,7 +170,7 @@ export default function ProjectRoot() {
                 return el;
             });
         });
-    }, [selectedId]);
+    }, [selectedId, elements, pushToHistory]);
 
     const handleDrag = useCallback((id: string, newWorldPos: THREE.Vector3) => {
         setElements(prev => {
@@ -165,10 +200,10 @@ export default function ProjectRoot() {
     }, []);
 
     const handleDragEnd = useCallback((id: string) => {
-        // Trigger snap only at the end of a drag to allow dragging "away" from a group
-        // without immediate re-snapping
+        // Trigger snap only at the end of a drag
+        pushToHistory(elements);
         checkSocketSnap(id, elements, setElements);
-    }, [elements]);
+    }, [elements, pushToHistory]);
 
     function checkSocketSnap(
         draggedId: string,
@@ -380,10 +415,20 @@ export default function ProjectRoot() {
                 rotateSelected(key as 'x' | 'y' | 'z');
             }
             if (palette[key]) changeColor(palette[key]);
+
+            if (key === 'z' && (e.ctrlKey || e.metaKey)) {
+                e.preventDefault();
+                if (e.shiftKey) redo();
+                else undo();
+            }
+            if (key === 'y' && (e.ctrlKey || e.metaKey)) {
+                e.preventDefault();
+                redo();
+            }
         };
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [addPart, deletePart, rotateSelected, changeColor, fitCameraToObjects, palette, ungroup, isDrawing, isJoining, isLocked, joinSelection]);
+    }, [addPart, deletePart, rotateSelected, changeColor, fitCameraToObjects, palette, ungroup, isDrawing, isJoining, isLocked, joinSelection, undo, redo]);
 
     const handleImportNastran = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -395,6 +440,7 @@ export default function ProjectRoot() {
             setShowBlocks(false);
             const data = parser.parse(event.target?.result as string);
             const id = Math.random().toString(36).substr(2, 9);
+            pushToHistory(elements);
             setElements(prev => [...prev, { id, type: 'nastran', data, color: currentColor, position: [0, 0, 0], rotation: [0, 0, 0, 1] }]);
             setImportSummary(data.summary);
             setTimeout(fitCameraToObjects, 100);
@@ -413,6 +459,7 @@ export default function ProjectRoot() {
             setShowBlocks(false);
             const data = parser.parse(text);
             const id = Math.random().toString(36).substr(2, 9);
+            pushToHistory(elements);
             setElements(prev => [...prev, { id, type: 'nastran', data, color: currentColor, position: [0, 0, 0], rotation: [0, 0, 0, 1] }]);
             setImportSummary(data.summary);
             setTimeout(fitCameraToObjects, 100);
@@ -420,7 +467,7 @@ export default function ProjectRoot() {
             console.error('Demo load error:', error);
             setJoinError('Failed to load demo model');
         }
-    }, [currentColor, fitCameraToObjects]);
+    }, [currentColor, fitCameraToObjects, elements, pushToHistory]);
 
 
     const [joinError, setJoinError] = useState<string | null>(null);
@@ -471,6 +518,8 @@ export default function ProjectRoot() {
             const movingEl = prev.find(e => e.id === moving.partId);
             const fixedEl = prev.find(e => e.id === fixed.partId);
             if (!movingEl || !fixedEl) return prev;
+
+            pushToHistory(prev);
 
             // 1. Calculate the rotation required to align ms normal to -fs normal
             const mSocketWorldQuat = new THREE.Quaternion();
@@ -640,6 +689,9 @@ export default function ProjectRoot() {
         { label: 'Join', shortcut: 'J', checked: isJoining, onClick: () => { setIsJoining(!isJoining); setJoinSelection(null); } },
         { label: 'Ungroup', shortcut: 'U', onClick: ungroup },
         { isSeparator: true },
+        { label: 'Undo', shortcut: 'Ctrl+Z', disabled: past.length === 0, onClick: undo },
+        { label: 'Redo', shortcut: 'Ctrl+Y', disabled: future.length === 0, onClick: redo },
+        { isSeparator: true },
         { label: 'BDF Import', onClick: () => document.getElementById('nastran-input')?.click() },
         { label: 'Load Demo Model', onClick: handleLoadDemo },
     ];
@@ -670,6 +722,7 @@ export default function ProjectRoot() {
 
                 {isDrawing && <DrawingSystem color={currentColor} onFinish={(points) => {
                     const id = Math.random().toString(36).substr(2, 9);
+                    pushToHistory(elements);
                     setElements(prev => [...prev, { id, type: 'floorplan', points, color: currentColor, position: [0, 0, 0], rotation: [0, 0, 0, 1] }]);
                     setIsDrawing(false);
                     setShowBlocks(true);
@@ -796,6 +849,9 @@ export default function ProjectRoot() {
                 </div>
 
                 <div className="controls-group" style={{ marginTop: '10px' }}>
+                    <button onClick={undo} className="btn btn-secondary" disabled={past.length === 0} title="Undo (Ctrl+Z)">Undo</button>
+                    <button onClick={redo} className="btn btn-secondary" disabled={future.length === 0} title="Redo (Ctrl+Y)">Redo</button>
+                    <div style={{ width: '10px' }}></div>
                     <button onClick={() => setShowGridIDs(!showGridIDs)} className={`btn ${showGridIDs ? 'btn-active' : 'btn-outline'}`}>Grids</button>
                     <button onClick={() => setShowElemIDs(!showElemIDs)} className={`btn ${showElemIDs ? 'btn-active-blue' : 'btn-outline'}`}>Elems</button>
                     <button onClick={() => setShowLoads(!showLoads)} className={`btn ${showLoads ? 'btn-danger' : 'btn-outline'}`}>Loads</button>

@@ -93,6 +93,10 @@ export const DrawingSystem: FC<DrawingSystemProps> = ({ onFinish, onCancel, colo
         const handleKeyDown = (e: KeyboardEvent) => {
             if (e.key === 'Enter' && points.length >= 3) onFinish(points);
             if (e.key === 'Escape') onCancel();
+            if (e.key === 'z' && (e.ctrlKey || e.metaKey)) {
+                e.preventDefault();
+                setPoints(prev => prev.slice(0, -1));
+            }
         };
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
